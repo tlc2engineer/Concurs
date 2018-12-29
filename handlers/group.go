@@ -35,7 +35,6 @@ type groupRes struct {
 
 /*Group - группировка*/
 func Group(w http.ResponseWriter, r *http.Request) {
-
 	vars := r.URL.Query()
 	//Ключи группировки и их верификация
 	vkey := vars.Get("keys")
