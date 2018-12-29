@@ -18,13 +18,12 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-const opt = "./data/options.txt"
-const filename = "./data/accounts_1.json"
-const filename_2 = "./data/accounts_2.json"
-const filename_3 = "./data/accounts_3.json"
+const opt = "options.txt"
+const num = 3
+const base = "./data/"
 
 func main() {
-	file, err := os.Open(opt)
+	file, err := os.Open(base + opt)
 	if err != nil {
 		panic(err)
 	}
@@ -39,21 +38,26 @@ func main() {
 	}
 	//router := mux.NewRouter()
 	accounts := make([]model.Account, 0)
-	acc, err := getData(filename)
-	if err != nil {
-		panic(err)
+	for i := 1; i <= num; i++ {
+		fmt.Println("Номер ", i)
+		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
+		acc, err := getData(fname)
+		if err != nil {
+			panic(err)
+		}
+		accounts = append(accounts, acc...)
 	}
-	accounts = append(accounts, acc...)
-	acc, err = getData(filename_2)
-	if err != nil {
-		panic(err)
-	}
-	accounts = append(accounts, acc...)
-	acc, err = getData(filename_3)
-	if err != nil {
-		panic(err)
-	}
-	accounts = append(accounts, acc...)
+
+	// acc, err = getData(filename_2)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// accounts = append(accounts, acc...)
+	// acc, err = getData(filename_3)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// accounts = append(accounts, acc...)
 	fmt.Println(len(accounts))
 	if len(os.Args) > 1 && os.Args[1] == "gen" {
 		err = util.CreateTables(accounts)
