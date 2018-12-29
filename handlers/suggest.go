@@ -3,58 +3,57 @@ package handlers
 import (
 	"Concurs/model"
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
+
+	"github.com/valyala/fasthttp"
 )
 
 /*Suggest - предпочитаемые id*/
-func Suggest(w http.ResponseWriter, r *http.Request, id int) {
-	//fmt.Printf("Suggest %d", id)
-	vars := r.URL.Query()
+func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	city := ""
 	country := ""
 	var limit = -1
 	// получение параметров и верификация
-	for k, v := range vars {
+	errFlag := false
+	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
+		k := string(kp)
+		val := string(v)
 		switch k {
 		case "city":
-			city = v[0]
+			city = val
 			if city == "" {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 		case "country":
-			country = v[0]
+			country = val
 			if country == "" {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 		case "limit":
-			num, err := strconv.ParseInt(v[0], 10, 0)
+			num, err := strconv.ParseInt(val, 10, 0)
 			if err != nil {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 			limit = int(num)
 			if limit <= 0 {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 		case "query_id":
 		default: // неизвестный параметр
-			fmt.Println("Непонятный заголовок " + k)
-			w.WriteHeader(400)
-			return
+			errFlag = true
 		}
+	})
+	if errFlag {
+		ctx.SetStatusCode(400)
+		return
 	}
 	var account model.Account
 	// находим аккаункт
 	account, err := model.GetAccount(id)
 	// Если нет такого аккаунта
 	if err != nil {
-		w.WriteHeader(404)
+		ctx.SetStatusCode(404)
 		return
 	}
 	//fmt.Println(account.SName, account.FName, account.Sex)
@@ -73,12 +72,10 @@ func Suggest(w http.ResponseWriter, r *http.Request, id int) {
 		idMap[int(lid)] = false
 	}
 	sugg := getSuggestAcc(filtered, idMap, limit, city, country)
-	// for _, acc := range sugg {
-	// 	fmt.Println(acc.SName, acc.FName, acc.Sex)
-	// }
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("charset", "UTF-8")
-	w.Write(suggestOutput(sugg))
+	ctx.SetContentType("application/json")
+	ctx.Response.Header.Set("charset", "UTF-8")
+	ctx.SetStatusCode(200)
+	ctx.Write(suggestOutput(sugg))
 }
 
 /*suggestOutput - вывод данных*/
@@ -177,5 +174,3 @@ func getSuggestAcc(sugg []model.Account, exclID map[int]bool, limit int, city st
 	}
 	return ret
 }
-
-

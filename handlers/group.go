@@ -4,11 +4,12 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 const it = 0 // целый тип
@@ -34,51 +35,50 @@ type groupRes struct {
 }
 
 /*Group - группировка*/
-func Group(w http.ResponseWriter, r *http.Request) {
-	vars := r.URL.Query()
+func Group(ctx *fasthttp.RequestCtx) {
+	//vars := r.URL.Query()
 	//Ключи группировки и их верификация
-	vkey := vars.Get("keys")
+	vkey := string(ctx.QueryArgs().Peek("keys"))
 	if vkey == "" {
 		fmt.Println("no keys")
-		w.WriteHeader(400)
+		ctx.SetStatusCode(400)
 		return
 	}
 	keys := strings.Split(vkey, ",")
 	if len(keys) == 0 {
 		fmt.Println("no keys")
-		w.WriteHeader(400)
+		ctx.SetStatusCode(400)
 		return
 	}
+	// Проверка ключей поиска
 	for _, key := range keys {
 		found := false
 		for _, legal := range keysLegal {
 			if key == legal { // ключа нет в списке
-				// fmt.Println("illegal key " + key)
-				// w.WriteHeader(400)
 				found = true
 				break
 			}
 		}
 		if !found {
 			fmt.Println("illegal key " + key)
-			w.WriteHeader(400)
+			ctx.SetStatusCode(400)
 			return
 		}
 	}
 	// Получение параметров и верификация
 	actParams := map[string]param{}
 	for k, v := range params {
-		p := vars.Get(k)
+		p := string(ctx.QueryArgs().Peek(k))
 		if p != "" {
 			switch v.tp {
 			case it:
 				ival, err := strconv.ParseInt(p, 10, 0)
 				if err != nil {
-					w.WriteHeader(400)
+					ctx.SetStatusCode(400)
 					return
 				}
 				if k == "order" && ival != 1 && ival != -1 {
-					w.WriteHeader(400)
+					ctx.SetStatusCode(400)
 					return
 				}
 				v.ival = ival
@@ -86,7 +86,7 @@ func Group(w http.ResponseWriter, r *http.Request) {
 			case st:
 				if k == "sex" {
 					if p != "m" && p != "f" {
-						w.WriteHeader(400)
+						ctx.SetStatusCode(400)
 						return
 					}
 				}
@@ -95,19 +95,18 @@ func Group(w http.ResponseWriter, r *http.Request) {
 			case dt:
 				ival, err := strconv.ParseInt(p, 10, 0)
 				if err != nil {
-					w.WriteHeader(400)
+					ctx.SetStatusCode(400)
 					return
 				}
 				tm := time.Unix(ival, 0)
 				if tm.Year() < 1950 {
-					w.WriteHeader(400)
+					ctx.SetStatusCode(400)
 					return
 				}
 			}
 
 		}
 	}
-	//fmt.Println(actParams)
 	// Фильтрация
 	filtered := make([]model.Account, 0)
 	accounts := model.GetAccounts()
@@ -249,9 +248,10 @@ func Group(w http.ResponseWriter, r *http.Request) {
 	}
 	// Вывод
 	bts := createGroupOutput(filGres, keys)
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("charset", "UTF-8")
-	w.Write(bts)
+	ctx.SetContentType("application/json")
+	ctx.Response.Header.Set("charset", "UTF-8")
+	ctx.SetStatusCode(200)
+	ctx.Write(bts)
 }
 
 /*createGroupOutput -вывод данных*/

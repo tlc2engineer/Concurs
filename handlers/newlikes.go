@@ -4,41 +4,31 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+
+	"github.com/valyala/fasthttp"
 )
 
 /*AddLikes - новые предпочтения*/
-func AddLikes(w http.ResponseWriter, r *http.Request) {
+func AddLikes(ctx *fasthttp.RequestCtx) {
 	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
-	vars := r.URL.Query()
-	for k := range vars {
-		if k == queryParam {
-			continue
-		}
-		fmt.Println("Bad param")
-		w.WriteHeader(400)
+	if !ctx.QueryArgs().Has(queryParam) {
+		ctx.SetStatusCode(400)
 		return
 	}
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Println("Ошибка чтения")
-		w.WriteHeader(400)
-		return
-	}
+	data := ctx.PostBody()
 	vmap := make(map[string][]Temp)
-	err = json.Unmarshal(data, &vmap)
+	err := json.Unmarshal(data, &vmap)
 	if err != nil {
 		fmt.Println("Ошибка распаковки")
-		w.WriteHeader(400)
+		ctx.SetStatusCode(400)
 		return
 	}
 	likesT, ok := vmap["likes"]
 	if !ok {
 		fmt.Println("Ошибка распаковки 1")
-		w.WriteHeader(400)
+		ctx.SetStatusCode(400)
 		return
 	}
 	// проверка что есть такие like id
@@ -47,14 +37,14 @@ func AddLikes(w http.ResponseWriter, r *http.Request) {
 		_, err := model.GetAccountPointer(int(id))
 		if err != nil {
 			fmt.Println("Нет такого id кто %d", id)
-			w.WriteHeader(400)
+			ctx.SetStatusCode(400)
 			return
 		}
 		id = like.Liker
 		_, err = model.GetAccountPointer(int(id))
 		if err != nil {
 			fmt.Println("Нет такого id кого")
-			w.WriteHeader(400)
+			ctx.SetStatusCode(400)
 			return
 		}
 	}
@@ -82,8 +72,8 @@ func AddLikes(w http.ResponseWriter, r *http.Request) {
 		pacc.Likes = likes
 	}
 	// окончание
-	w.WriteHeader(202) // все в норме
-	w.Write([]byte(""))
+	ctx.SetStatusCode(202) // все в норме
+	ctx.Write([]byte(""))
 	return
 
 }

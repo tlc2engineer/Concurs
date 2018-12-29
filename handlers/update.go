@@ -4,49 +4,35 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"strings"
+
+	"github.com/valyala/fasthttp"
 )
 
 const queryParam = "query_id"
 
 /*Update - обновление аккаунта*/
-func Update(w http.ResponseWriter, r *http.Request, id int) {
-	fmt.Println("Update")
+func Update(ctx *fasthttp.RequestCtx, id int) {
 	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
-	vars := r.URL.Query()
-	for k := range vars {
-		if k == queryParam {
-			continue
-		}
-		fmt.Println("Bad param")
-		w.WriteHeader(400)
+	if !ctx.QueryArgs().Has("query_id") {
+		fmt.Println("Нет query_id")
+		ctx.SetStatusCode(400)
 		return
 	}
-	paccount, err := model.GetAccountPointer(id)
+	paccount, err := model.GetAccountPointer(int(id))
 	if err != nil {
 		fmt.Println("Нет такого аккаунта")
-		w.WriteHeader(404) // Нет такого аккаунта
+		ctx.SetStatusCode(404)
 		return
 	}
-	data, err := ioutil.ReadAll(r.Body)
-	// data := make([]byte, 0, 1000)
-	// body := r.Body
-	// n, err := body.Read(data)
-	if err != nil {
-		fmt.Println(err)
-		w.WriteHeader(400) // ошибка чтения
-		return
-	}
-
+	data := ctx.PostBody()
 	dat := make(map[string]interface{})
 	err = json.Unmarshal(data, &dat)
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(400) // ошибка верификации
+		ctx.SetStatusCode(400)
 		return
 	}
 	//fmt.Println("Данные", dat)
@@ -220,7 +206,7 @@ func Update(w http.ResponseWriter, r *http.Request, id int) {
 	err = verify(dat)
 	if err != nil {
 		fmt.Println(err)
-		w.WriteHeader(400) // ошибка верификации
+		ctx.SetStatusCode(400)
 		return
 	}
 	// Присвоение значений
@@ -251,7 +237,6 @@ func Update(w http.ResponseWriter, r *http.Request, id int) {
 		case "status":
 			paccount.Status = status
 		case "interests":
-			fmt.Println(interests)
 			paccount.Interests = interests
 		case "premium":
 			paccount.Premium = model.Premium{Start: start, Finish: finish}
@@ -259,8 +244,8 @@ func Update(w http.ResponseWriter, r *http.Request, id int) {
 			paccount.Likes = model.NormLikes(likes)
 		}
 	}
-	w.WriteHeader(202) // все в норме
-	w.Write([]byte(""))
+	ctx.SetStatusCode(202) // все в норме
+	ctx.Write([]byte(""))
 	return
 }
 

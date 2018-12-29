@@ -4,9 +4,9 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 /*LBtime - нижний предел даты рождения*/
@@ -38,45 +38,34 @@ func init() {
 }
 
 /*Add - добавление нового аккаунта*/
-func Add(w http.ResponseWriter, r *http.Request) {
+func Add(ctx *fasthttp.RequestCtx) {
 	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
-	vars := r.URL.Query()
-	for k := range vars {
-		if k == "query_id" {
-			continue
-		}
-		w.WriteHeader(400)
+	if !ctx.QueryArgs().Has("query_id") {
+		ctx.SetStatusCode(400)
 		return
 	}
-	data := make([]byte, 10000, 10000)
-	body := r.Body
-	n, err := body.Read(data)
-	if err != nil && err != io.EOF {
-		fmt.Println(err)
-		w.WriteHeader(400) // ошибка чтения
-		return
-	}
+	data := ctx.PostBody()
 	acc := new(model.Account)
-	err = json.Unmarshal(data[:n], acc)
+	err := json.Unmarshal(data, acc)
 	if err != nil {
 		fmt.Println("Ошибка распаковки", err)
-		w.WriteHeader(400) // ошибка верификации
+		ctx.SetStatusCode(400)
 		return
 	}
 	err = verifyAccount(acc)
 	if err != nil {
 		fmt.Println("Ошибка верификации", err)
-		w.WriteHeader(400) // ошибка верификации
+		ctx.SetStatusCode(400)
 		return
 	}
 	likes := acc.Likes
 	likes = model.NormLikes(likes)
 	acc.Likes = likes
 	model.AddAcc(*acc)
-	w.WriteHeader(201) // все в норме
-	w.Write([]byte(""))
+	ctx.SetStatusCode(201) // все в норме
+	ctx.Write([]byte(""))
 	return
 }
 

@@ -3,61 +3,60 @@ package handlers
 import (
 	"Concurs/model"
 	"encoding/json"
-	"fmt"
 	"math"
-	"net/http"
 	"sort"
 	"strconv"
+
+	"github.com/valyala/fasthttp"
 )
 
 var enParam = []string{"country", "city"}
 
 /*Recommend - рекомендуемые id*/
-func Recommend(w http.ResponseWriter, r *http.Request, id int) {
-	//fmt.Printf("Recommend %d", id)
-	vars := r.URL.Query()
+func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	city := ""
 	country := ""
 	var limit = -1
 	// получение параметров и верификация
-	for k, v := range vars {
+	errFlag := false
+	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
+		k := string(kp)
+		val := string(v)
 		switch k {
 		case "city":
-			city = v[0]
+			city = val
 			if city == "" {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 		case "country":
-			country = v[0]
+			country = val
 			if country == "" {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 		case "limit":
-			num, err := strconv.ParseInt(v[0], 10, 0)
+			num, err := strconv.ParseInt(val, 10, 0)
 			if err != nil {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
 			limit = int(num)
-			if limit < 0 {
-				w.WriteHeader(400)
-				return
+			if limit <= 0 {
+				errFlag = true
 			}
 		case "query_id":
 		default: // неизвестный параметр
-			fmt.Println("Непонятный заголовок " + k)
-			w.WriteHeader(400)
-			return
+			errFlag = true
 		}
+	})
+	if errFlag {
+		ctx.SetStatusCode(400)
+		return
 	}
 	var account model.Account
 	// находим аккаункт
 	account, err := model.GetAccount(id)
 	// Если нет такого аккаунта
 	if err != nil {
-		w.WriteHeader(404)
+		ctx.SetStatusCode(404)
 		return
 	}
 	// фильтрация
@@ -89,12 +88,13 @@ func Recommend(w http.ResponseWriter, r *http.Request, id int) {
 		return f.ID < s.ID
 	})
 
-	if len(filtered) > limit && limit != -1 {
+	if limit > 0 && len(filtered) > 0 && len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("charset", "UTF-8")
-	w.Write(recommendOutput(filtered))
+	ctx.SetContentType("application/json")
+	ctx.Response.Header.Set("charset", "UTF-8")
+	ctx.SetStatusCode(200)
+	ctx.Write(recommendOutput(filtered))
 }
 
 func filterRecommend(account model.Account, country string, city string) []model.Account {

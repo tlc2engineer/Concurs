@@ -4,11 +4,12 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 type sparam struct {
@@ -26,26 +27,26 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 	"premium": {"now", "null"}, "likes": {"contains"}}
 
 /*Filter - фильтрация аккаунтов*/
-func Filter(w http.ResponseWriter, r *http.Request) {
+func Filter(ctx *fasthttp.RequestCtx) {
 	accounts := model.GetAccounts()
 	parMap := make(map[string]sparam)
 	var limit int
 	limit = -1
-	vars := r.URL.Query()
-	for k := range vars {
-		prm := vars.Get(k)
+	errFlag := false
+	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
+		k := string(kp)
+		prm := string(v)
 		if k == "query_id" {
-			continue
+			return
 		}
 		if k == "limit" {
 			val, err := strconv.Atoi(prm)
 			if err == nil {
 				limit = val
 			} else {
-				w.WriteHeader(400)
-				return
+				errFlag = true
 			}
-			continue
+			return
 		}
 		find := false
 		for _, spar := range sparams {
@@ -59,39 +60,41 @@ func Filter(w http.ResponseWriter, r *http.Request) {
 						sp.pred = args[1]
 					} else {
 						fmt.Println("no arguments")
-						w.WriteHeader(400)
-						return
+						errFlag = true
 					}
 				} else {
-					w.WriteHeader(400)
-					return
+					errFlag = true
 				}
 				parMap[spar] = sp
 			}
 		}
 		if !find { // параметр не найден
 			fmt.Println("par not found " + k)
-			w.WriteHeader(400)
-			return
+			errFlag = true
 		}
+
+	})
+	if errFlag {
+		ctx.SetStatusCode(400)
+		return
 	}
 	// не найден limit ошибка
 	if limit == -1 {
-		fmt.Println("no limit", r.URL.Path)
+		fmt.Println("no limit", string(ctx.Path()))
 		resp := make(map[string][]map[string]interface{})
 		out := make([]map[string]interface{}, 0, len(accounts))
 		resp["accounts"] = out
 		bts, _ := json.Marshal(resp)
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("charset", "UTF-8")
-		w.WriteHeader(200)
-		w.Write(bts)
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		ctx.Write(bts)
 		return
 	}
 	err := verifyFilter(parMap)
 	if err != nil {
 		fmt.Println("no verify " + err.Error())
-		w.WriteHeader(400)
+		ctx.SetStatusCode(400)
 		return
 	}
 	resp := make([]model.Account, 0)
@@ -154,9 +157,10 @@ m1:
 	if len(resp) > limit {
 		resp = resp[:limit]
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("charset", "UTF-8")
-	w.Write(createFilterOutput(resp, fields))
+	ctx.SetContentType("application/json")
+	ctx.Response.Header.Set("charset", "UTF-8")
+	ctx.SetStatusCode(200)
+	ctx.Write((createFilterOutput(resp, fields)))
 }
 
 /*verifyFilter - проверка строки запроса*/
@@ -400,6 +404,7 @@ func filterPremium(account model.Account, pname string, parMap map[string]sparam
 	par := parMap[pname].par
 	switch pred {
 	case "now":
+
 		return account.IsPremium() //premium.Start < model.Now && premium.Finish > model.Now
 	case "null":
 		if par == "0" {
