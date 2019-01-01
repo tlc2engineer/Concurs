@@ -7,9 +7,6 @@ import (
 
 var WrMutex = new(sync.Mutex)
 var accounts []Account
-var accMap = make(map[int]*Account)
-var accMailMap = make(map[string]int)
-var accPhone = make(map[string]int)
 
 /*GetAccounts - Получение списка*/
 func GetAccounts() []Account {
@@ -23,17 +20,17 @@ func SetAccounts(acc []Account) {
 	for i := range accounts {
 		id := accounts[i].ID
 		pacc := &accounts[i]
-		accMap[id] = pacc
-		accMailMap[pacc.Email] = pacc.ID
+		MainMap[id] = pacc
+		MailMap[pacc.Email] = uint32(pacc.ID)
 		if pacc.Phone != "" {
-			accPhone[pacc.Phone] = pacc.ID
+			PhoneMap[pacc.Phone] = uint32(pacc.ID)
 		}
 	}
 }
 
 /*GetAccount - получение значения аккаунта*/
 func GetAccount(id int) (Account, error) {
-	acc, ok := accMap[id]
+	acc, ok := MainMap[id]
 	if !ok {
 		return Account{}, fmt.Errorf("Нет аккаунта %d", id)
 	}
@@ -42,36 +39,36 @@ func GetAccount(id int) (Account, error) {
 
 /*AddAcc - добавление элемента*/
 func AddAcc(account Account) {
-	accounts = append(accounts, account)            // добавление в список
-	accMap[account.ID] = &accounts[len(accounts)-1] // указатель на последний элемент в карту
-	accMailMap[account.Email] = accounts[len(accounts)-1].ID
+	accounts = append(accounts, account)             // добавление в список
+	MainMap[account.ID] = &accounts[len(accounts)-1] // указатель на последний элемент в карту
+	MailMap[account.Email] = uint32(accounts[len(accounts)-1].ID)
 	if account.Phone != "" {
-		accPhone[account.Phone] = accounts[len(accounts)-1].ID
+		PhoneMap[account.Phone] = uint32(accounts[len(accounts)-1].ID)
 	}
 	return
 }
 
 /*GetAccMail - получение аккаунта по email*/
 func GetAccMail(email string) int {
-	id, ok := accMailMap[email]
+	id, ok := MailMap[email]
 	if !ok {
 		return -1
 	}
-	return id
+	return int(id)
 }
 
 /*GetAccPhone -  аккаунт по телефону*/
 func GetAccPhone(phone string) int {
-	id, ok := accPhone[phone]
+	id, ok := PhoneMap[phone]
 	if !ok {
 		return -1
 	}
-	return id
+	return int(id)
 }
 
 /*GetAccountPointer - получение указателя на аккаунт*/
 func GetAccountPointer(id int) (*Account, error) {
-	accp, ok := accMap[id]
+	accp, ok := MainMap[id]
 	if !ok {
 		return &Account{}, fmt.Errorf("Нет аккаунта")
 	}
@@ -80,20 +77,20 @@ func GetAccountPointer(id int) (*Account, error) {
 
 /*UpdateEmail - обновить карту email*/
 func UpdateEmail(n, old string) {
-	id := accMailMap[old]
-	delete(accMailMap, old)
-	accMailMap[n] = id
+	id := MailMap[old]
+	delete(MailMap, old)
+	MailMap[n] = id
 }
 
 /*UpdatePhone - обновить карту email*/
 func UpdatePhone(n, old string) {
-	id := accPhone[old]
-	delete(accPhone, old)
-	accPhone[n] = id
+	id := PhoneMap[old]
+	delete(PhoneMap, old)
+	PhoneMap[n] = id
 }
 
 /*IsMailExist - email существует*/
 func IsMailExist(mail string) bool {
-	_, exist := accMailMap[mail]
+	_, exist := MailMap[mail]
 	return exist
 }
