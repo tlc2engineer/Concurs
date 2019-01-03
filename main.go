@@ -4,6 +4,7 @@ import (
 	"Concurs/handlers"
 	"Concurs/model"
 	"Concurs/util"
+
 	"bufio"
 	"encoding/json"
 	"fmt"
@@ -53,9 +54,15 @@ func main() {
 		accounts = append(accounts, acc...)
 	}
 	fmt.Println(len(accounts))
-	
+
 	accounts = model.NormAll(accounts) // нормализация
-	model.SetAccounts(accounts)
+	users := make([]model.User, len(accounts))
+	for i := range accounts {
+		likes := accounts[i].Likes
+		users[i] = model.Conv(accounts[i])
+		model.LikesMap[users[i].ID] = model.PackLSlice(likes)
+	}
+	model.SetUsers(users)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)

@@ -63,7 +63,9 @@ func Add(ctx *fasthttp.RequestCtx) {
 	likes := acc.Likes
 	likes = model.NormLikes(likes)
 	acc.Likes = likes
-	model.AddAcc(*acc)
+	inLikes := model.PackLSlice(likes)
+	model.LikesMap[uint32(acc.ID)] = inLikes
+	model.AddAcc(model.Conv(*acc))
 	ctx.SetStatusCode(201) // все в норме
 	ctx.Write([]byte(""))
 	return
@@ -75,7 +77,7 @@ func verifyAccount(acc *model.Account) error {
 		return fmt.Errorf("Нет id")
 	}
 	// проверка id
-	_, err := model.GetAccount(acc.ID)
+	_, err := model.GetAccount(uint32(acc.ID))
 	if err == nil {
 		return fmt.Errorf("Такой id уже есть")
 	}
@@ -139,7 +141,7 @@ func verifyAccount(acc *model.Account) error {
 	// проверка Like того что id существуют
 	for _, like := range acc.Likes {
 		id := like.ID
-		_, err = model.GetAccount(int(id)) //id существуют
+		_, err = model.GetAccount(uint32(id)) //id существуют
 		if err != nil {
 			return err
 		}

@@ -28,13 +28,6 @@ type Account struct {
 	//mutex     *sync.RWMutex
 }
 
-/*Like - Лайк*/
-type Like struct {
-	Ts  float64 `json:"ts"`
-	ID  int64   `json:"id"`
-	Num uint8
-}
-
 /*FilterLike - фильтрация лайков*/
 func (acc Account) FilterLike() []int64 {
 	// acc.mutex.Lock()

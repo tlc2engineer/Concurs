@@ -48,17 +48,17 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	var account model.Account
+	var account model.User
 	// находим аккаункт
-	account, err := model.GetAccount(id)
+	account, err := model.GetAccount(uint32(id))
 	// Если нет такого аккаунта
 	if err != nil {
 		ctx.SetStatusCode(404)
 		return
 	}
-	//fmt.Println(account.SName, account.FName, account.Sex)
+
 	// фильтрация по стране  полу городу
-	filtered := filterSuggest(account, country, city)
+	filtered := filterSuggest(account, model.DataCountry[country], model.DataCity[city])
 	// сортировка по предпочтениям
 	sort.Slice(filtered, func(i, j int) bool {
 		f := filtered[i]
@@ -66,12 +66,12 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		return f.Suggest(account) > s.Suggest(account)
 	})
 	// составление карты предпочтений самого пользователя
-	idMap := make(map[int]bool)
-	lids := account.FilterLike()
+	idMap := make(map[uint32]bool)
+	lids := model.UnPackLSlice(model.LikesMap[account.ID])
 	for _, lid := range lids {
-		idMap[int(lid)] = false
+		idMap[uint32(lid.ID)] = false
 	}
-	sugg := getSuggestAcc(filtered, idMap, limit, city, country)
+	sugg := getSuggestAcc(filtered, idMap, limit, model.DataCity[city], model.DataCountry[country])
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
@@ -79,14 +79,14 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 }
 
 /*suggestOutput - вывод данных*/
-func suggestOutput(accounts []model.Account) []byte {
+func suggestOutput(accounts []model.User) []byte {
 	resp := make(map[string][]map[string]interface{})
 	out := make([]map[string]interface{}, 0, len(accounts))
 	for _, account := range accounts {
 		dat := make(map[string]interface{})
 		dat["email"] = account.Email
 		dat["id"] = account.ID
-		dat["status"] = account.Status
+		dat["status"] = model.GetSPVal("status", uint16(account.Status))
 		if account.SName != "" {
 			dat["sname"] = account.SName
 		}
@@ -101,38 +101,30 @@ func suggestOutput(accounts []model.Account) []byte {
 }
 
 /*filterSuggest - фильтрация пользователей по полу,стране,городу*/
-func filterSuggest(account model.Account, country string, city string) []model.Account {
+func filterSuggest(account model.User, country uint16, city uint16) []model.User {
 	accounts := model.GetAccounts()
-	filtered := make([]model.Account, 0)
-	likes := account.Likes
+	filtered := make([]model.User, 0)
 	sex := account.Sex
+	rec := sex
 	for _, acc := range accounts {
-		found := false
-		alikes := acc.Likes
-	m:
-		for _, like := range likes {
-			for _, alike := range alikes {
-				if like.ID == alike.ID {
-					found = true
-					break m
-				}
-			}
-		}
-		if !found {
-			continue
-		}
 		if acc.Sex != sex {
 			continue
 		}
-		if country != "" {
+		if acc.Sex != rec {
+			continue
+		}
+		if country != 0 {
 			if acc.Country != country {
 				continue
 			}
 		}
-		if city != "" {
+		if city != 0 {
 			if acc.City != city {
 				continue
 			}
+		}
+		if account.Suggest(acc) == 0.0 {
+			continue
 		}
 		filtered = append(filtered, acc)
 	}
@@ -141,24 +133,17 @@ func filterSuggest(account model.Account, country string, city string) []model.A
 }
 
 /*getSuggestAcc - аккаунты которые любят пользователи с близкими симпатиями*/
-func getSuggestAcc(sugg []model.Account, exclID map[int]bool, limit int, city string, country string) []model.Account {
-	ret := make([]model.Account, 0) // возвращаемое значение
+func getSuggestAcc(sugg []model.User, exclID map[uint32]bool, limit int, city uint16, country uint16) []model.User {
+	ret := make([]model.User, 0) // возвращаемое значение
 	for i := range sugg {
-		ids := sugg[i].FilterLike()               // id предпочитает данный пользователь
-		tmp := make([]model.Account, 0, len(ids)) // временный срез для id пользователя которые не предпочитает целевой
-		for _, id := range ids {                  // id которые предпочитал пользователь
-			_, ok := exclID[int(id)] // фильтрация id которые предпочитает целевой пользователь
+		likes := model.UnPackLSlice(model.LikesMap[sugg[i].ID]) // id предпочитает данный пользователь
+		tmp := make([]model.User, 0, len(likes))                // временный срез для id пользователя которые не предпочитает целевой
+		for _, like := range likes {                            // id которые предпочитал пользователь
+			_, ok := exclID[uint32(like.ID)] // фильтрация id которые предпочитает целевой пользователь
 			if ok {
 				continue
 			}
-			acc, _ := model.GetAccount(int(id))
-			// if city != "" && acc.City != city {
-			// 	continue
-			// }
-			// if country != "" && acc.Country != country {
-			// 	continue
-			// }
-
+			acc, _ := model.GetAccount(uint32(like.ID))
 			tmp = append(tmp, acc)
 
 		}

@@ -19,6 +19,7 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	var limit = -1
 	// получение параметров и верификация
 	errFlag := false
+	noneFlag := false
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
 		k := string(kp)
 		val := string(v)
@@ -28,10 +29,18 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 			if city == "" {
 				errFlag = true
 			}
+			_, ok := model.DataCity[city]
+			if !ok {
+				noneFlag = true
+			}
 		case "country":
 			country = val
 			if country == "" {
 				errFlag = true
+			}
+			_, ok := model.DataCountry[country]
+			if !ok {
+				noneFlag = true
 			}
 		case "limit":
 			num, err := strconv.ParseInt(val, 10, 0)
@@ -51,16 +60,27 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	var account model.Account
+	if noneFlag {
+		resp := make(map[string][]map[string]interface{})
+		out := make([]map[string]interface{}, 0, 0)
+		resp["accounts"] = out
+		bts, _ := json.Marshal(resp)
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		ctx.Write(bts)
+		return
+	}
+	var account model.User
 	// находим аккаункт
-	account, err := model.GetAccount(id)
+	account, err := model.GetAccount(uint32(id))
 	// Если нет такого аккаунта
 	if err != nil {
 		ctx.SetStatusCode(404)
 		return
 	}
 	// фильтрация
-	filtered := filterRecommend(account, country, city)
+	filtered := filterRecommend(account, model.DataCountry[country], model.DataCity[city])
 	sort.Slice(filtered, func(i, j int) bool {
 		f := filtered[i]
 		s := filtered[j]
@@ -69,8 +89,8 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 			return f.IsPremium()
 		}
 		// по статусу
-		if f.VStatus() != s.VStatus() {
-			return f.VStatus() < s.VStatus()
+		if f.Status != s.Status {
+			return f.Status < s.Status
 		}
 		// общие интересы
 		commf := f.GetCommInt(account)
@@ -79,8 +99,8 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 			return commf > comms // у кого больше общих интересов
 		}
 		// по разнице в возрасте
-		agef := math.Abs(float64(account.Birth - f.Birth))
-		ages := math.Abs(float64(account.Birth - s.Birth))
+		agef := math.Abs(float64(int64(account.Birth) - int64(f.Birth)))
+		ages := math.Abs(float64(int64(account.Birth) - int64(s.Birth)))
 		if agef != ages {
 			return agef < ages
 		}
@@ -91,54 +111,58 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	if limit > 0 && len(filtered) > 0 && len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
+	// fmt.Println("Accouunt", account.Interests, account.ID, time.Unix(int64(account.Birth), 0))
+	// for _, f := range filtered {
+	// 	fmt.Println(model.GetSPVal("city", f.City), f.Interests, f.ID, f.IsPremium(), f.GetCommInt(account),
+	// 		int64(account.Birth)-int64(f.Birth), time.Unix(int64(f.Birth), 0), account.Birth, f.Birth)
+	// }
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
 	ctx.Write(recommendOutput(filtered))
 }
 
-func filterRecommend(account model.Account, country string, city string) []model.Account {
+func filterRecommend(account model.User, country uint16, city uint16) []model.User {
 	accounts := model.GetAccounts()
-	filtered := make([]model.Account, 0)
+	filtered := make([]model.User, 0)
 	sex := account.Sex
-	rec := "f"
-	if sex == "f" {
-		rec = "m"
-	}
+	rec := !sex // противоположный пол
 	for _, acc := range accounts {
-		if acc.GetCommInt(account) == 0 {
-			continue
-		}
 		if acc.Sex != rec {
 			continue
 		}
-		if country != "" {
+		if country != 0 {
 			if acc.Country != country {
 				continue
 			}
 		}
-		if city != "" {
+		if city != 0 {
 			if acc.City != city {
 				continue
 			}
 		}
+		if acc.GetCommInt(account) == 0 {
+			continue
+		}
+
 		filtered = append(filtered, acc)
 	}
 	return filtered
 
 }
 
-func recommendOutput(accounts []model.Account) []byte {
+func recommendOutput(accounts []model.User) []byte {
 	resp := make(map[string][]map[string]interface{})
 	out := make([]map[string]interface{}, 0, len(accounts))
 	for _, account := range accounts {
 		dat := make(map[string]interface{})
 		if account.IsPremium() {
-			dat["premium"] = account.Premium
+			prem := model.Premium{Start: int64(account.Start), Finish: int64(account.Finish)}
+			dat["premium"] = prem
 		}
 		dat["email"] = account.Email
 		dat["id"] = account.ID
-		dat["status"] = account.Status
+		dat["status"] = model.GetSPVal("status", uint16(account.Status))
 		if account.SName != "" {
 			dat["sname"] = account.SName
 		}

@@ -34,14 +34,14 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 	// проверка что есть такие like id
 	for _, like := range likesT {
 		id := like.Likee
-		_, err := model.GetAccountPointer(int(id))
+		_, err := model.GetAccountPointer(uint32(id))
 		if err != nil {
 			fmt.Println("Нет такого id кто %d", id)
 			ctx.SetStatusCode(400)
 			return
 		}
 		id = like.Liker
-		_, err = model.GetAccountPointer(int(id))
+		_, err = model.GetAccountPointer(uint32(id))
 		if err != nil {
 			fmt.Println("Нет такого id кого")
 			ctx.SetStatusCode(400)
@@ -53,23 +53,27 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		id := like.Liker
 		id2 := like.Likee
 		ts := like.Ts
-		pacc, _ := model.GetAccountPointer(int(id))
+		data := model.LikesMap[uint32(id)]
 		// добавление
-		likes := pacc.Likes
+
 		found := false
-		for i := range likes {
-			if likes[i].ID == id2 { // уже есть лайк
-				nts := (ts + likes[i].Ts*float64(likes[i].Num)) / float64(1+likes[i].Num) // новый ts
-				likes[i].Num = likes[i].Num + 1
-				likes[i].Ts = nts
+		for i := 0; i < len(data)/8; i++ {
+			l := model.LikeUnPack(data[i*8 : i*8+8])
+			if l.ID == id2 { // уже есть лайк
+				cnt := data[i*8+7]
+				cnt++
+				data[i*8+7] = cnt
 				found = true
 				break
 			}
 		}
+
 		if !found { // у аккаунта нет лайков на того же пользователя
-			likes = append(likes, model.Like{ID: id2, Ts: ts, Num: 1})
+			p := model.LikePack(model.Like{float64(ts), id2, 1})
+			data = append(data, p...)
+			model.LikesMap[uint32(id)] = data
 		}
-		pacc.Likes = likes
+		//model.LikesMap[uint32(id)] = data
 	}
 	// окончание
 	ctx.SetStatusCode(202) // все в норме

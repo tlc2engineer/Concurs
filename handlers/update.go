@@ -21,7 +21,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	paccount, err := model.GetAccountPointer(int(id))
+	paccount, err := model.GetAccountPointer(uint32(id))
 	if err != nil {
 		fmt.Println("Нет такого аккаунта")
 		ctx.SetStatusCode(404)
@@ -225,23 +225,32 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		case "sname":
 			paccount.SName = sname
 		case "sex":
-			paccount.Sex = sex
+			bsex:=false
+			if sex=="m"{
+				bsex=true
+			}
+			paccount.Sex = bsex
 		case "birth":
-			paccount.Birth = birth
+			paccount.Birth = uint32(birth)
 		case "country":
-			paccount.Country = country
+			paccount.Country = model.DataCountry[country]
 		case "city":
-			paccount.City = city
+			paccount.City = model.DataCity[city]
 		case "joined":
-			paccount.Joined = joined
+			paccount.Joined = uint32(joined)
 		case "status":
-			paccount.Status = status
+			paccount.Status = model.DataStatus[status]
 		case "interests":
-			paccount.Interests = interests
+			in:=make([]uint16,len(interests))
+			for i:=range in{
+				in[i]=model.DataInter[interests[i]]
+			}
+			paccount.Interests = in
 		case "premium":
-			paccount.Premium = model.Premium{Start: start, Finish: finish}
+			paccount.Start=uint32(start)
+			paccount.Finish=uint32(finish)
 		case "likes":
-			paccount.Likes = model.NormLikes(likes)
+			model.LikesMap[uint32(id)]=model.PackLSlice(model.NormLikes(likes))
 		}
 	}
 	ctx.SetStatusCode(202) // все в норме

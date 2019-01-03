@@ -6,20 +6,20 @@ import (
 )
 
 var WrMutex = new(sync.Mutex)
-var accounts []Account
+var users []User
 
 /*GetAccounts - Получение списка*/
-func GetAccounts() []Account {
-	return accounts
+func GetAccounts() []User {
+	return users
 }
 
-/*SetAccounts - установка списка*/
-func SetAccounts(acc []Account) {
-	accounts = make([]Account, 0, len(acc)*2) //двойная емкость
-	accounts = append(accounts, acc...)
-	for i := range accounts {
-		id := accounts[i].ID
-		pacc := &accounts[i]
+/*SetUsers - установка списка*/
+func SetUsers(acc []User) {
+	users = make([]User, 0, len(acc)*2) //двойная емкость
+	users = append(users, acc...)
+	for i := range users {
+		id := users[i].ID
+		pacc := &users[i]
 		MainMap[id] = pacc
 		MailMap[pacc.Email] = uint32(pacc.ID)
 		if pacc.Phone != "" {
@@ -29,21 +29,21 @@ func SetAccounts(acc []Account) {
 }
 
 /*GetAccount - получение значения аккаунта*/
-func GetAccount(id int) (Account, error) {
+func GetAccount(id uint32) (User, error) {
 	acc, ok := MainMap[id]
 	if !ok {
-		return Account{}, fmt.Errorf("Нет аккаунта %d", id)
+		return User{}, fmt.Errorf("Нет аккаунта %d", id)
 	}
 	return *acc, nil
 }
 
 /*AddAcc - добавление элемента*/
-func AddAcc(account Account) {
-	accounts = append(accounts, account)             // добавление в список
-	MainMap[account.ID] = &accounts[len(accounts)-1] // указатель на последний элемент в карту
-	MailMap[account.Email] = uint32(accounts[len(accounts)-1].ID)
-	if account.Phone != "" {
-		PhoneMap[account.Phone] = uint32(accounts[len(accounts)-1].ID)
+func AddAcc(user User) {
+	users = append(users, user)             // добавление в список
+	MainMap[user.ID] = &users[len(users)-1] // указатель на последний элемент в карту
+	MailMap[user.Email] = uint32(users[len(users)-1].ID)
+	if user.Phone != "" {
+		PhoneMap[user.Phone] = uint32(users[len(users)-1].ID)
 	}
 	return
 }
@@ -67,10 +67,10 @@ func GetAccPhone(phone string) int {
 }
 
 /*GetAccountPointer - получение указателя на аккаунт*/
-func GetAccountPointer(id int) (*Account, error) {
+func GetAccountPointer(id uint32) (*User, error) {
 	accp, ok := MainMap[id]
 	if !ok {
-		return &Account{}, fmt.Errorf("Нет аккаунта")
+		return &User{}, fmt.Errorf("Нет аккаунта")
 	}
 	return accp, nil
 }

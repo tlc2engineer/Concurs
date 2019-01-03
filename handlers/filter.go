@@ -97,35 +97,114 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	resp := make([]model.Account, 0)
-	filtFunc := make([]func(model.Account) bool, 0)
-	var f func(model.Account) bool
+	resp := make([]model.User, 0)
+	filtFunc := make([]func(model.User) bool, 0)
+	var f func(model.User) bool
 	for k := range parMap {
 		switch k {
-		case "country", "email", "fname", "sname", "phone", "status", "city", "sex":
-			f = func(par string) func(acc model.Account) bool {
-				return func(acc model.Account) bool {
+		case "email", "fname", "sname", "phone":
+			f = func(par string) func(acc model.User) bool {
+				return func(acc model.User) bool {
 					return filterAcc(acc, par, parMap)
 				}
 			}(k)
+		case "city":
+			f = func(acc model.User) bool {
+				pred := parMap["city"].pred
+				par := parMap["city"].par
+				switch pred {
+				case "null":
+					if par == "1" {
+						return acc.City == 0
+					}
+					if par == "0" {
+						return acc.City != 0
+					}
+				case "eq":
+					return acc.City == model.DataCity[par]
+				case "any":
+					if acc.City == 0 {
+						return false
+					}
+					cities := strings.Split(par, ",")
+					for _, city := range cities {
+						if model.DataCity[city] == acc.City {
+							return true
+						}
+					}
+					return false
+				}
+				return false
+			}
+		case "country":
+			f = func(acc model.User) bool {
+				pred := parMap["country"].pred
+				par := parMap["country"].par
+				switch pred {
+				case "null":
+					if par == "1" {
+						return acc.Country == 0
+					}
+					if par == "0" {
+						return acc.Country != 0
+					}
+				case "eq":
+					return acc.Country == model.DataCountry[par]
+				}
+				return false
+			}
+		case "sex":
+			f = func(acc model.User) bool {
+				par := parMap["sex"].par
+				return ((par == "m") && acc.Sex) || ((par == "f") && !acc.Sex)
+			}
+		case "status":
+			f = func(acc model.User) bool {
+				pred := parMap["status"].pred
+				par := parMap["status"].par
+				switch pred {
+				case "eq":
+					return acc.Status == model.DataStatus[par]
+				case "neq":
+					return acc.Status != model.DataStatus[par]
+				}
+				return false
+			}
+		// case "phone":
+		// 	f = func(acc model.User) bool {
+		// 		pred := parMap["phone"].pred
+		// 		par := parMap["phone"].pred
+		// 		switch pred {
+		// 		case "code":
+		// 			return strings.Contains(par, "("+string(acc.Code)+")")
+		// 		case "null":
+		// 			if par == "1" {
+		// 				return acc.Phone == ""
+		// 			}
+		// 			if par == "0" {
+		// 				return acc.Phone != ""
+		// 			}
+		// 		}
+		// 		return false
+		// 	}
 		case "interests":
-			f = func(acc model.Account) bool {
+			f = func(acc model.User) bool {
 				return filterInterests(acc, "interests", parMap)
 			}
 		case "likes":
-			f = func(acc model.Account) bool {
+			f = func(acc model.User) bool {
 				return filterLikes(acc, "likes", parMap)
 			}
 		case "premium":
-			f = func(acc model.Account) bool {
+			f = func(acc model.User) bool {
 				return filterPremium(acc, "premium", parMap)
 			}
 		case "birth":
-			f = func(acc model.Account) bool {
+			f = func(acc model.User) bool {
 				return filterDate(acc, "birth", parMap)
 			}
 		case "joined":
-			f = func(acc model.Account) bool {
+			f = func(acc model.User) bool {
 				return filterDate(acc, "joined", parMap)
 			}
 		}
@@ -240,14 +319,24 @@ func verifyFilter(params map[string]sparam) error {
 }
 
 /*filterAcc - фильтр строчного параметра*/
-func filterAcc(account model.Account, pname string, parMap map[string]sparam) bool {
+func filterAcc(account model.User, pname string, parMap map[string]sparam) bool {
 	par := parMap[pname].par
 	// если параметр не контролируется
 	if par == "" {
 		return true
 	}
 	pred := parMap[pname].pred
-	accP := account.GetSParam(pname)
+	accP := ""
+	switch pname {
+	case "email":
+		accP = account.Email
+	case "fname":
+		accP = account.FName
+	case "sname":
+		accP = account.SName
+	case "phone":
+		accP = account.Phone
+	}
 	switch pred {
 	case "eq":
 		return accP == par
@@ -285,7 +374,7 @@ func filterAcc(account model.Account, pname string, parMap map[string]sparam) bo
 }
 
 /*filterInterests - фильтр интересов*/
-func filterInterests(account model.Account, pname string, parMap map[string]sparam) bool {
+func filterInterests(account model.User, pname string, parMap map[string]sparam) bool {
 	par := parMap[pname].par
 	if par == "" {
 		return true
@@ -293,9 +382,13 @@ func filterInterests(account model.Account, pname string, parMap map[string]spar
 	interests := account.Interests
 	pred := parMap[pname].pred
 	pari := strings.Split(par, ",")
+	dat := make([]uint16, len(pari))
+	for i := range pari {
+		dat[i] = model.DataInter[pari[i]]
+	}
 	switch pred {
 	case "contains":
-		for _, p := range pari {
+		for _, p := range dat {
 			find := false
 			for _, inter := range interests {
 				if p == inter {
@@ -311,7 +404,7 @@ func filterInterests(account model.Account, pname string, parMap map[string]spar
 	case "any":
 
 		for _, inter := range interests {
-			for _, p := range pari {
+			for _, p := range dat {
 				if p == inter {
 					return true
 				}
@@ -320,7 +413,7 @@ func filterInterests(account model.Account, pname string, parMap map[string]spar
 		return false
 	case "neq":
 		for _, inter := range interests {
-			if par != inter {
+			if model.DataInter[par] != inter {
 				return false
 			}
 		}
@@ -330,12 +423,13 @@ func filterInterests(account model.Account, pname string, parMap map[string]spar
 }
 
 /*filterLikes - фильтр лайков*/
-func filterLikes(account model.Account, pname string, parMap map[string]sparam) bool {
+func filterLikes(account model.User, pname string, parMap map[string]sparam) bool {
 	par := parMap[pname].par
 	if par == "" {
 		return true
 	}
-	likes := account.Likes
+	id := account.ID
+	likes := model.UnPackLSlice(model.LikesMap[id])
 	lnums := make([]int64, 0, len(likes))
 	args := strings.Split(par, ",")
 	for _, p := range args {
@@ -359,7 +453,7 @@ func filterLikes(account model.Account, pname string, parMap map[string]sparam) 
 }
 
 /*filterDate - фильтр по дате*/
-func filterDate(account model.Account, pname string, parMap map[string]sparam) bool {
+func filterDate(account model.User, pname string, parMap map[string]sparam) bool {
 	par := parMap[pname].par
 	if par == "" {
 		return true
@@ -367,10 +461,10 @@ func filterDate(account model.Account, pname string, parMap map[string]sparam) b
 	pred := parMap[pname].pred
 	var date time.Time
 	if pname == "birth" {
-		date = time.Unix(account.Birth, 0).In(loc)
+		date = time.Unix(int64(account.Birth), 0).In(loc)
 	}
 	if pname == "joined" {
-		date = time.Unix(account.Joined, 0).In(loc)
+		date = time.Unix(int64(account.Joined), 0).In(loc)
 	}
 
 	if len(par) == 1 && par == "" {
@@ -380,15 +474,15 @@ func filterDate(account model.Account, pname string, parMap map[string]sparam) b
 	case "lt":
 		num, _ := strconv.ParseInt(par, 10, 0)
 		if pname == "birth" {
-			return account.Birth < num
+			return int64(account.Birth) < num
 		}
-		return account.Joined < num
+		return int64(account.Joined) < num
 	case "gt":
 		num, _ := strconv.ParseInt(par, 10, 0)
 		if pname == "birth" {
-			return account.Birth > num
+			return int64(account.Birth) > num
 		}
-		return account.Joined > num
+		return int64(account.Joined) > num
 	case "year":
 
 		year, _ := strconv.ParseInt(par, 10, 0)
@@ -398,27 +492,33 @@ func filterDate(account model.Account, pname string, parMap map[string]sparam) b
 }
 
 /*filterPremium - фильтр по премиум*/
-func filterPremium(account model.Account, pname string, parMap map[string]sparam) bool {
-	premium := account.Premium
+func filterPremium(account model.User, pname string, parMap map[string]sparam) bool {
+	// premium := model.Premium{
+	// 	Start:  int64(account.Start),
+	// 	Finish: int64(account.Finish),
+	// }
 	pred := parMap[pname].pred
 	par := parMap[pname].par
 	switch pred {
 	case "now":
-
-		return account.IsPremium() //premium.Start < model.Now && premium.Finish > model.Now
+		start := time.Unix(int64(account.Start), 0).In(model.Loc)
+		finish := time.Unix(int64(account.Finish), 0).In(model.Loc)
+		now := time.Unix(model.Now, 0).In(model.Loc)
+		//acc.mutex.Unlock()
+		return now.After(start) && now.Before(finish)
 	case "null":
 		if par == "0" {
-			return premium != model.Premium{}
+			return !(account.Start == 0 && account.Finish == 0)
 		}
 		if par == "1" {
-			return premium == model.Premium{}
+			return account.Start == 0 && account.Finish == 0
 		}
 	}
 	return true
 }
 
 /*createFilterOutput - вывод фильтра*/
-func createFilterOutput(accounts []model.Account, fields []string) []byte {
+func createFilterOutput(accounts []model.User, fields []string) []byte {
 	resp := make(map[string][]map[string]interface{})
 	out := make([]map[string]interface{}, 0, len(accounts))
 	for _, account := range accounts {
@@ -429,7 +529,11 @@ func createFilterOutput(accounts []model.Account, fields []string) []byte {
 			for _, field := range fields {
 				switch field {
 				case "sex":
-					dat["sex"] = account.Sex
+					osex := "f"
+					if account.Sex {
+						osex = "m"
+					}
+					dat["sex"] = osex
 				case "fname":
 					dat["fname"] = account.FName
 				case "sname":
@@ -437,17 +541,33 @@ func createFilterOutput(accounts []model.Account, fields []string) []byte {
 				case "phone":
 					dat["phone"] = account.Phone
 				case "city":
-					dat["city"] = account.City
+					for k, v := range model.DataCity {
+						if v == account.City {
+							dat["city"] = k
+						}
+					}
 				case "country":
-					dat["country"] = account.Country
+					for k, v := range model.DataCountry {
+						if v == account.Country {
+							dat["country"] = k
+						}
+					}
 				case "birth":
 					dat["birth"] = account.Birth
 				case "joined":
 					dat["joined"] = account.Joined
 				case "status":
-					dat["status"] = account.Status
+					for k, v := range model.DataStatus {
+						if v == account.Status {
+							dat["status"] = k
+						}
+					}
 				case "premium":
-					dat["premium"] = account.Premium
+					prem := model.Premium{
+						Start:  int64(account.Start),
+						Finish: int64(account.Finish),
+					}
+					dat["premium"] = prem
 				}
 			}
 		}
