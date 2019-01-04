@@ -55,7 +55,6 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		ts := like.Ts
 		data := model.GetLikes(uint32(id))
 		// добавление
-
 		found := false
 		for i := 0; i < len(data)/8; i++ {
 			l := model.LikeUnPack(data[i*8 : i*8+8])
@@ -69,7 +68,9 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		}
 
 		if !found { // у аккаунта нет лайков на того же пользователя
-			p := model.LikePack(model.Like{float64(ts), id2, 1})
+			l := model.Like{Ts: float64(ts), ID: id2, Num: 1}
+			p := model.LikePack(l)
+			model.AddWho(uint32(id), l)
 			data = append(data, p...)
 			model.SetLikes(uint32(id), data)
 		}

@@ -56,16 +56,9 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(404)
 		return
 	}
-
 	// фильтрация по стране  полу городу
 	filtered := filterSuggest(account, model.DataCountry[country], model.DataCity[city])
 	// сортировка по предпочтениям
-	sort.Slice(filtered, func(i, j int) bool {
-		f := filtered[i]
-		s := filtered[j]
-		return f.Suggest(account) > s.Suggest(account)
-	})
-	// составление карты предпочтений самого пользователя
 	idMap := make(map[uint32]bool)
 	lids := model.UnPackLSlice(model.GetLikes(account.ID))
 	for _, lid := range lids {
@@ -107,7 +100,10 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 	for i := 0; i < len(whos)/8; i++ {
 		var id uint32 // кого лайкал
 		id = uint32(whos[i*8]) | uint32(whos[i*8+1])<<8 | uint32(whos[i*8+2])<<16
-		oth := model.WhoMap[id] // другие кто еще лайкал тот же аккаунт
+		oth, err := model.GetWho(id) // другие кто еще лайкал тот же аккаунт
+		if err != nil {
+			continue
+		}
 		// добавляем других в карту
 		for _, o := range oth {
 			_, ok := wh[o]
@@ -116,11 +112,12 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 			}
 		}
 	}
-	accounts := model.GetAccounts()
-	filtered := make([]model.User, 0)
+	tmp := make([]tmpS, 0)
+
 	sex := account.Sex
 	rec := sex
-	for _, acc := range accounts {
+	for i := range wh {
+		acc, _ := model.GetAccount(i)
 		if acc.Sex != sex {
 			continue
 		}
@@ -137,10 +134,18 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 				continue
 			}
 		}
-		if account.Suggest(acc) == 0.0 {
+		s := account.Suggest(acc)
+		if s == 0.0 {
 			continue
 		}
-		filtered = append(filtered, acc)
+		tmp = append(tmp, tmpS{s: s, user: acc})
+	}
+	sort.Slice(tmp, func(i, j int) bool {
+		return tmp[i].s > tmp[j].s
+	})
+	filtered := make([]model.User, 0, len(tmp))
+	for i := range tmp {
+		filtered = append(filtered, tmp[i].user)
 	}
 	return filtered
 
@@ -172,4 +177,9 @@ func getSuggestAcc(sugg []model.User, exclID map[uint32]bool, limit int, city ui
 		}
 	}
 	return ret
+}
+
+type tmpS struct {
+	s    float64
+	user model.User
 }

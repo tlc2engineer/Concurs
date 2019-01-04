@@ -100,6 +100,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	resp := make([]model.User, 0)
 	filtFunc := make([]func(model.User) bool, 0)
 	var f func(model.User) bool
+	// установка фильтров
 	for k := range parMap {
 		switch k {
 		case "email", "fname", "sname", "phone":
@@ -170,28 +171,35 @@ func Filter(ctx *fasthttp.RequestCtx) {
 				}
 				return false
 			}
-		// case "phone":
-		// 	f = func(acc model.User) bool {
-		// 		pred := parMap["phone"].pred
-		// 		par := parMap["phone"].pred
-		// 		switch pred {
-		// 		case "code":
-		// 			return strings.Contains(par, "("+string(acc.Code)+")")
-		// 		case "null":
-		// 			if par == "1" {
-		// 				return acc.Phone == ""
-		// 			}
-		// 			if par == "0" {
-		// 				return acc.Phone != ""
-		// 			}
-		// 		}
-		// 		return false
-		// 	}
 		case "interests":
 			f = func(acc model.User) bool {
 				return filterInterests(acc, "interests", parMap)
 			}
 		case "likes":
+			//accounts = make([]model.User, 0)
+			accmap := make(map[uint32]model.User)
+			par := parMap["likes"].par
+			if par == "" {
+				continue
+			}
+			args := strings.Split(par, ",")
+			for _, p := range args {
+				num, _ := strconv.ParseInt(p, 10, 0)
+				ids, err := model.GetWho(uint32(num))
+				if err != nil {
+					continue
+				}
+				//fmt.Println(ids)
+				for _, i := range ids {
+					accmap[i], _ = model.GetAccount(uint32(i))
+					//accounts = append(accounts, acc)
+				}
+			}
+			accounts = make([]model.User, 0)
+			for _, acc := range accmap {
+				accounts = append(accounts, acc)
+			}
+			//continue
 			f = func(acc model.User) bool {
 				return filterLikes(acc, "likes", parMap)
 			}
@@ -210,6 +218,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		}
 		filtFunc = append(filtFunc, f)
 	}
+
 	// фильтрация
 m1:
 	for _, account := range accounts {
@@ -222,13 +231,11 @@ m1:
 		resp = append(resp, account)
 	}
 	fields := make([]string, 0)
-	//fmt.Println(parMap)
 	for k := range parMap {
 		par := parMap[k]
 		if !(par.pred == "null" && par.par == "1") { //_null=1
 			fields = append(fields, k)
 		}
-
 	}
 	sort.Slice(resp, func(i, j int) bool {
 		return resp[i].ID > resp[j].ID
@@ -493,10 +500,6 @@ func filterDate(account model.User, pname string, parMap map[string]sparam) bool
 
 /*filterPremium - фильтр по премиум*/
 func filterPremium(account model.User, pname string, parMap map[string]sparam) bool {
-	// premium := model.Premium{
-	// 	Start:  int64(account.Start),
-	// 	Finish: int64(account.Finish),
-	// }
 	pred := parMap[pname].pred
 	par := parMap[pname].par
 	switch pred {

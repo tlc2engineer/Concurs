@@ -249,20 +249,42 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		case "status":
 			paccount.Status = model.DataStatus[status]
 		case "interests":
-			// in := make([]uint16, len(interests))
-			// for i := range in {
-			// 	_, ok := model.DataInter[interests[i]]
-			// 	if ok {
-			// 		in[i] = model.DataInter[interests[i]]
-			// 	}
-
-			// }
 			paccount.Interests = model.GetInterests(interests)
 		case "premium":
 			paccount.Start = uint32(start)
 			paccount.Finish = uint32(finish)
 		case "likes":
-			model.SetLikes(uint32(id), model.PackLSlice(model.NormLikes(likes)))
+			likes := model.NormLikes(likes) // нормируем
+			model.AddWhos(uint32(id), likes)
+			//Удалить старые лайки которых уже нет!
+			oldLikes := model.GetLikes(uint32(id)) // старые лайки
+			ids := make([]uint32, 0)               // список несовпадающих лайков
+			for i := 0; i < len(oldLikes)/8; i++ {
+				var idLike uint32 // старый id
+				idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
+				found := false
+				for _, like := range likes {
+					if uint32(like.ID) == idLike {
+						found = true
+						break
+					}
+				}
+				if !found {
+					ids = append(ids, idLike)
+				}
+			}
+			// Цикл по номерам которые уже не предпочитает
+			for _, tid := range ids {
+				data, _ := model.GetWho(tid) // кто лайкал данный id
+				for i := range data {
+					if data[i] == uint32(id) { // нашли id
+						copy(data[i:], data[i+1:]) // убираю
+						data = data[:len(data)-1]  // уменьшаю на 1
+					}
+				}
+				model.SetWho(uint32(id), data)
+			}
+			model.SetLikes(uint32(id), model.PackLSlice(likes))
 		}
 	}
 	ctx.SetStatusCode(202) // все в норме
