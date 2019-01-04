@@ -101,8 +101,6 @@ func (acc Account) GetBirth() time.Time {
 
 /*Suggest - общие предпочтения с другим аккаунтом*/
 func (acc Account) Suggest(oth Account) float64 {
-	// acc.mutex.Lock()
-	// defer acc.mutex.Unlock()
 	ret := 0.0
 	for _, like := range acc.Likes {
 		for _, olike := range oth.Likes {
@@ -116,7 +114,6 @@ func (acc Account) Suggest(oth Account) float64 {
 
 /*NormLikes - нормализация*/
 func NormLikes(inLikes []Like) []Like {
-	nlikes := make([]Like, 0, len(inLikes))
 	tmap := make(map[int64][]float64)
 	for _, like := range inLikes {
 		id := like.ID
@@ -129,6 +126,7 @@ func NormLikes(inLikes []Like) []Like {
 			tmap[id] = vars
 		}
 	}
+	cnt := 0
 	for k, v := range tmap {
 		sum := 0.0
 		count := 0
@@ -136,9 +134,12 @@ func NormLikes(inLikes []Like) []Like {
 			count += 1.0
 			sum += ts
 		}
-		nlikes = append(nlikes, Like{Ts: sum / float64(count), ID: k, Num: uint8(count)})
+		inLikes[cnt].ID = k
+		inLikes[cnt].Ts = sum / float64(count)
+		inLikes[cnt].Num = uint8(count)
+		cnt++
 	}
-	return nlikes
+	return inLikes[:cnt]
 }
 
 /*Premium - премиум*/
@@ -150,7 +151,6 @@ type Premium struct {
 /*NormAll -  нормализация лайков*/
 func NormAll(acc []Account) []Account {
 	for i := range acc {
-		//acc[i].mutex = new(sync.RWMutex)
 		likes := acc[i].Likes
 		acc[i].Likes = NormLikes(likes)
 	}

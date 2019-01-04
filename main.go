@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	accounts := make([]model.Account, 0)
+	users := make([]model.User, 0)
 	for i := 1; i <= num; i++ {
 		fmt.Println("Номер ", i)
 		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
@@ -51,16 +51,17 @@ func main() {
 			}
 			return
 		}
-		accounts = append(accounts, acc...)
-	}
-	fmt.Println(len(accounts))
-
-	accounts = model.NormAll(accounts) // нормализация
-	users := make([]model.User, len(accounts))
-	for i := range accounts {
-		likes := accounts[i].Likes
-		users[i] = model.Conv(accounts[i])
-		model.LikesMap[users[i].ID] = model.PackLSlice(likes)
+		acc = model.NormAll(acc)
+		// Добавление данных об аккаунте
+		for i := range acc {
+			user := model.Conv(acc[i])
+			model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
+			// добавление данных в карту кто-кого
+			for _, like := range acc[i].Likes {
+				model.AddWho(user.ID, like)
+			}
+			users = append(users, user)
+		}
 	}
 	model.SetUsers(users)
 	router := fasthttprouter.New()

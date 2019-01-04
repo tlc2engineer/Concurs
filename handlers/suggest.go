@@ -67,7 +67,7 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	})
 	// составление карты предпочтений самого пользователя
 	idMap := make(map[uint32]bool)
-	lids := model.UnPackLSlice(model.LikesMap[account.ID])
+	lids := model.UnPackLSlice(model.GetLikes(account.ID))
 	for _, lid := range lids {
 		idMap[uint32(lid.ID)] = false
 	}
@@ -102,6 +102,20 @@ func suggestOutput(accounts []model.User) []byte {
 
 /*filterSuggest - фильтрация пользователей по полу,стране,городу*/
 func filterSuggest(account model.User, country uint16, city uint16) []model.User {
+	whos := model.GetLikes(account.ID) // лайки данного аккаунта
+	wh := make(map[uint32]bool)        // карта других кто еще лайкал
+	for i := 0; i < len(whos)/8; i++ {
+		var id uint32 // кого лайкал
+		id = uint32(whos[i*8]) | uint32(whos[i*8+1])<<8 | uint32(whos[i*8+2])<<16
+		oth := model.WhoMap[id] // другие кто еще лайкал тот же аккаунт
+		// добавляем других в карту
+		for _, o := range oth {
+			_, ok := wh[o]
+			if !ok {
+				wh[o] = true
+			}
+		}
+	}
 	accounts := model.GetAccounts()
 	filtered := make([]model.User, 0)
 	sex := account.Sex
@@ -136,7 +150,7 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 func getSuggestAcc(sugg []model.User, exclID map[uint32]bool, limit int, city uint16, country uint16) []model.User {
 	ret := make([]model.User, 0) // возвращаемое значение
 	for i := range sugg {
-		likes := model.UnPackLSlice(model.LikesMap[sugg[i].ID]) // id предпочитает данный пользователь
+		likes := model.UnPackLSlice(model.GetLikes(sugg[i].ID)) // id предпочитает данный пользователь
 		tmp := make([]model.User, 0, len(likes))                // временный срез для id пользователя которые не предпочитает целевой
 		for _, like := range likes {                            // id которые предпочитал пользователь
 			_, ok := exclID[uint32(like.ID)] // фильтрация id которые предпочитает целевой пользователь

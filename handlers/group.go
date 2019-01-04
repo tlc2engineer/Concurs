@@ -137,7 +137,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 			likeID := likesP.ival
 			found := false
 			id := account.ID
-			for _, like := range model.UnPackLSlice(model.LikesMap[id]) {
+			for _, like := range model.UnPackLSlice(model.GetLikes(id)) {
 				if like.ID == likeID {
 					found = true
 					break

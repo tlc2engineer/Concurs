@@ -225,32 +225,44 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		case "sname":
 			paccount.SName = sname
 		case "sex":
-			bsex:=false
-			if sex=="m"{
-				bsex=true
+			bsex := false
+			if sex == "m" {
+				bsex = true
 			}
 			paccount.Sex = bsex
 		case "birth":
 			paccount.Birth = uint32(birth)
 		case "country":
+			_, ok := model.DataCountry[country]
+			if !ok {
+				model.DataCountry[country] = uint16(len(model.DataCountry) + 1)
+			}
 			paccount.Country = model.DataCountry[country]
 		case "city":
+			_, ok := model.DataCity[city]
+			if !ok {
+				model.DataCity[city] = uint16(len(model.DataCity) + 1)
+			}
 			paccount.City = model.DataCity[city]
 		case "joined":
 			paccount.Joined = uint32(joined)
 		case "status":
 			paccount.Status = model.DataStatus[status]
 		case "interests":
-			in:=make([]uint16,len(interests))
-			for i:=range in{
-				in[i]=model.DataInter[interests[i]]
-			}
-			paccount.Interests = in
+			// in := make([]uint16, len(interests))
+			// for i := range in {
+			// 	_, ok := model.DataInter[interests[i]]
+			// 	if ok {
+			// 		in[i] = model.DataInter[interests[i]]
+			// 	}
+
+			// }
+			paccount.Interests = model.GetInterests(interests)
 		case "premium":
-			paccount.Start=uint32(start)
-			paccount.Finish=uint32(finish)
+			paccount.Start = uint32(start)
+			paccount.Finish = uint32(finish)
 		case "likes":
-			model.LikesMap[uint32(id)]=model.PackLSlice(model.NormLikes(likes))
+			model.SetLikes(uint32(id), model.PackLSlice(model.NormLikes(likes)))
 		}
 	}
 	ctx.SetStatusCode(202) // все в норме

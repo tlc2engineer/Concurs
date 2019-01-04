@@ -64,7 +64,7 @@ func Add(ctx *fasthttp.RequestCtx) {
 	likes = model.NormLikes(likes)
 	acc.Likes = likes
 	inLikes := model.PackLSlice(likes)
-	model.LikesMap[uint32(acc.ID)] = inLikes
+	model.SetLikes(uint32(acc.ID), inLikes)
 	model.AddAcc(model.Conv(*acc))
 	ctx.SetStatusCode(201) // все в норме
 	ctx.Write([]byte(""))

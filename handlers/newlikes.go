@@ -53,7 +53,7 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		id := like.Liker
 		id2 := like.Likee
 		ts := like.Ts
-		data := model.LikesMap[uint32(id)]
+		data := model.GetLikes(uint32(id))
 		// добавление
 
 		found := false
@@ -71,7 +71,7 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		if !found { // у аккаунта нет лайков на того же пользователя
 			p := model.LikePack(model.Like{float64(ts), id2, 1})
 			data = append(data, p...)
-			model.LikesMap[uint32(id)] = data
+			model.SetLikes(uint32(id), data)
 		}
 		//model.LikesMap[uint32(id)] = data
 	}

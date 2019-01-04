@@ -429,7 +429,7 @@ func filterLikes(account model.User, pname string, parMap map[string]sparam) boo
 		return true
 	}
 	id := account.ID
-	likes := model.UnPackLSlice(model.LikesMap[id])
+	likes := model.UnPackLSlice(model.GetLikes(id))
 	lnums := make([]int64, 0, len(likes))
 	args := strings.Split(par, ",")
 	for _, p := range args {
