@@ -257,6 +257,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			likes := model.NormLikes(likes) // нормируем
 			model.AddWhos(uint32(id), likes)
 			//Удалить старые лайки которых уже нет!
+
 			oldLikes := model.GetLikes(uint32(id)) // старые лайки
 			ids := make([]uint32, 0)               // список несовпадающих лайков
 			for i := 0; i < len(oldLikes)/8; i++ {
@@ -276,14 +277,9 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			// Цикл по номерам которые уже не предпочитает
 			for _, tid := range ids {
 				data, _ := model.GetWho(tid) // кто лайкал данный id
-				for i := range data {
-					if data[i] == uint32(id) { // нашли id
-						copy(data[i:], data[i+1:]) // убираю
-						data = data[:len(data)-1]  // уменьшаю на 1
-					}
-				}
-				model.SetWho(uint32(id), data)
+				model.SetWho(uint32(tid), removeI(uint32(id), data))
 			}
+
 			model.SetLikes(uint32(id), model.PackLSlice(likes))
 		}
 	}

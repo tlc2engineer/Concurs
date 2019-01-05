@@ -57,7 +57,17 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		return
 	}
 	// фильтрация по стране  полу городу
-	filtered := filterSuggest(account, model.DataCountry[country], model.DataCity[city])
+	cityVal, ok := model.DataCity[city]
+	if !ok {
+		retZero(ctx)
+		return
+	}
+	countryVal, ok := model.DataCountry[country]
+	if !ok {
+		retZero(ctx)
+		return
+	}
+	filtered := filterSuggest(account, countryVal, cityVal)
 	// сортировка по предпочтениям
 	idMap := make(map[uint32]bool)
 	lids := model.UnPackLSlice(model.GetLikes(account.ID))

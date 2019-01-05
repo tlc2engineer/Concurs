@@ -80,15 +80,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	}
 	// не найден limit ошибка
 	if limit == -1 {
-		fmt.Println("no limit", string(ctx.Path()))
-		resp := make(map[string][]map[string]interface{})
-		out := make([]map[string]interface{}, 0, len(accounts))
-		resp["accounts"] = out
-		bts, _ := json.Marshal(resp)
-		ctx.SetContentType("application/json")
-		ctx.Response.Header.Set("charset", "UTF-8")
-		ctx.SetStatusCode(200)
-		ctx.Write(bts)
+		retZero(ctx)
 		return
 	}
 	err := verifyFilter(parMap)
@@ -101,6 +93,8 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	filtFunc := make([]func(model.User) bool, 0)
 	var f func(model.User) bool
 	// установка фильтров
+	noneFlag := false
+
 	for k := range parMap {
 		switch k {
 		case "email", "fname", "sname", "phone":
@@ -122,7 +116,11 @@ func Filter(ctx *fasthttp.RequestCtx) {
 						return acc.City != 0
 					}
 				case "eq":
-					return acc.City == model.DataCity[par]
+					city, ok := model.DataCity[par]
+					if !ok {
+						return false //noneFlag = true
+					}
+					return acc.City == city
 				case "any":
 					if acc.City == 0 {
 						return false
@@ -218,7 +216,10 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		}
 		filtFunc = append(filtFunc, f)
 	}
-
+	if noneFlag {
+		retZero(ctx)
+		return
+	}
 	// фильтрация
 m1:
 	for _, account := range accounts {

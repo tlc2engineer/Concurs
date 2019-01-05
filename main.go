@@ -23,6 +23,8 @@ const num = 3
 const base = "./data/"
 
 func main() {
+
+	//----------------------------------------
 	file, err := os.Open(base + opt)
 	if err != nil {
 		panic(err)
@@ -36,7 +38,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	users := make([]model.User, 0)
+	gen := len(os.Args) > 1 && os.Args[1] == "gen"
+	accounts := make([]model.Account, 0)
+	users := make([]model.User, 0, num*10000)
 	for i := 1; i <= num; i++ {
 		fmt.Println("Номер ", i)
 		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
@@ -44,24 +48,48 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		if len(os.Args) > 1 && os.Args[1] == "gen" {
-			err = util.CreateTables(acc)
-			if err != nil {
-				panic(err)
-			}
-			return
-		}
+
 		acc = model.NormAll(acc)
-		// Добавление данных об аккаунте
-		for i := range acc {
-			user := model.Conv(acc[i])
-			model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
-			// добавление данных в карту кто-кого
-			for _, like := range acc[i].Likes {
-				model.AddWho(user.ID, like)
+		if gen {
+			accounts = append(accounts, acc...)
+		} else {
+			// Добавление данных об аккаунте
+			wb := model.DB.NewWriteBatch()
+			//}
+			for i := range acc {
+				user := model.Conv(acc[i])
+				if false {
+					fmt.Println(user.City)
+				}
+				if model.Budger {
+					err = wb.Set([]byte("l"+string(user.ID)), model.PackLSlice(acc[i].Likes), 0)
+					if err != nil {
+						fmt.Println(err)
+					}
+				} else {
+					model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
+				}
+				// добавление данных в карту кто-кого
+				for _, like := range acc[i].Likes {
+					model.AddWho(user.ID, like)
+				}
+				users = append(users, user)
 			}
-			users = append(users, user)
+			err = wb.Flush()
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
+	}
+
+	// Генерация sql
+	if gen {
+		fmt.Println("In SQL")
+		err = util.CreateTables(accounts)
+		if err != nil {
+			panic(err)
+		}
+		return
 	}
 	model.SetUsers(users)
 	router := fasthttprouter.New()

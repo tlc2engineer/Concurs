@@ -12,12 +12,13 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const connStr = "user=postgres dbname=concurs sslmode=disable password=m171079 host=192.168.213.66"
+const connStr = "user=postgres dbname=concurs sslmode=disable password=m171079 host=localhost"
 
 /*CreateTables - заполнение sql*/
 func CreateTables(data []model.Account) error {
-
+	fmt.Println("Создание таблиц", len(data))
 	db, err := sql.Open("postgres", connStr)
+	defer db.Close()
 	if err != nil {
 		log.Fatal(err)
 	}

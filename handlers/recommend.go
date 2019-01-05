@@ -61,14 +61,7 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		return
 	}
 	if noneFlag {
-		resp := make(map[string][]map[string]interface{})
-		out := make([]map[string]interface{}, 0, 0)
-		resp["accounts"] = out
-		bts, _ := json.Marshal(resp)
-		ctx.SetContentType("application/json")
-		ctx.Response.Header.Set("charset", "UTF-8")
-		ctx.SetStatusCode(200)
-		ctx.Write(bts)
+		retZero(ctx)
 		return
 	}
 	var account model.User

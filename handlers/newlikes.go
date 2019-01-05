@@ -48,6 +48,8 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			return
 		}
 	}
+	wb := model.DB.NewWriteBatch()
+	defer wb.Cancel()
 	// добавление like
 	for _, like := range likesT {
 		id := like.Liker
@@ -72,9 +74,20 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			p := model.LikePack(l)
 			model.AddWho(uint32(id), l)
 			data = append(data, p...)
-			model.SetLikes(uint32(id), data)
+			if !model.Budger {
+				model.SetLikes(uint32(id), data)
+			} else {
+				err = wb.Set([]byte("l"+string(uint32(id))), data, 0)
+				if err != nil {
+					fmt.Println(err)
+				}
+			}
 		}
 		//model.LikesMap[uint32(id)] = data
+	}
+	err = wb.Flush()
+	if err != nil {
+		fmt.Println(err)
 	}
 	// окончание
 	ctx.SetStatusCode(202) // все в норме
