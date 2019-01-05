@@ -19,8 +19,8 @@ import (
 )
 
 const opt = "options.txt"
-const num = 3
-const base = "./data/"
+const num = 130
+const base = "/home/sergey/Загрузки/data/data/" //"./data/"
 
 func main() {
 
@@ -48,37 +48,23 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-
 		acc = model.NormAll(acc)
 		if gen {
 			accounts = append(accounts, acc...)
 		} else {
-			// Добавление данных об аккаунте
-			wb := model.DB.NewWriteBatch()
-			//}
 			for i := range acc {
 				user := model.Conv(acc[i])
 				if false {
 					fmt.Println(user.City)
 				}
-				if model.Budger {
-					err = wb.Set([]byte("l"+string(user.ID)), model.PackLSlice(acc[i].Likes), 0)
-					if err != nil {
-						fmt.Println(err)
-					}
-				} else {
-					model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
-				}
+				model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
 				// добавление данных в карту кто-кого
 				for _, like := range acc[i].Likes {
 					model.AddWho(user.ID, like)
 				}
 				users = append(users, user)
 			}
-			err = wb.Flush()
-			if err != nil {
-				fmt.Println(err)
-			}
+
 		}
 	}
 

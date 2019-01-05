@@ -4,6 +4,7 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
@@ -48,14 +49,18 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			return
 		}
 	}
-	wb := model.DB.NewWriteBatch()
-	defer wb.Cancel()
 	// добавление like
 	for _, like := range likesT {
 		id := like.Liker
 		id2 := like.Likee
 		ts := like.Ts
-		data := model.GetLikes(uint32(id))
+		for {
+			data = model.GetLikes(uint32(id))
+			if len(data) != 1 {
+				break
+			}
+			time.Sleep(time.Millisecond * 50)
+		}
 		// добавление
 		found := false
 		for i := 0; i < len(data)/8; i++ {
@@ -68,27 +73,15 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 				break
 			}
 		}
-
 		if !found { // у аккаунта нет лайков на того же пользователя
 			l := model.Like{Ts: float64(ts), ID: id2, Num: 1}
 			p := model.LikePack(l)
 			model.AddWho(uint32(id), l)
 			data = append(data, p...)
-			if !model.Budger {
-				model.SetLikes(uint32(id), data)
-			} else {
-				err = wb.Set([]byte("l"+string(uint32(id))), data, 0)
-				if err != nil {
-					fmt.Println(err)
-				}
-			}
 		}
-		//model.LikesMap[uint32(id)] = data
+		model.SetLikes(uint32(id), data)
 	}
-	err = wb.Flush()
-	if err != nil {
-		fmt.Println(err)
-	}
+
 	// окончание
 	ctx.SetStatusCode(202) // все в норме
 	ctx.Write([]byte(""))
