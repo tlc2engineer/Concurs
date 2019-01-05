@@ -15,7 +15,7 @@ func GetAccounts() []User {
 
 /*SetUsers - установка списка*/
 func SetUsers(acc []User) {
-	users = make([]User, 0, len(acc)*2) //двойная емкость
+	users = make([]User, 0, len(acc)) //двойная емкость
 	users = append(users, acc...)
 	for i := range users {
 		id := users[i].ID
