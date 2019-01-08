@@ -221,9 +221,9 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Phone = phone
 			model.UpdatePhone(phone, old)
 		case "fname":
-			paccount.FName = fname
+			paccount.SetFname(fname)
 		case "sname":
-			paccount.SName = sname
+			paccount.SetSname(sname)
 		case "sex":
 			bsex := false
 			if sex == "m" {

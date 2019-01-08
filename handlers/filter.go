@@ -339,9 +339,9 @@ func filterAcc(account model.User, pname string, parMap map[string]sparam) bool 
 	case "email":
 		accP = account.Email
 	case "fname":
-		accP = account.FName
+		accP = account.GetFname()
 	case "sname":
-		accP = account.SName
+		accP = account.GetSname()
 	case "phone":
 		accP = account.Phone
 	}
@@ -529,6 +529,7 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 		dat := make(map[string]interface{})
 		dat["email"] = account.Email
 		dat["id"] = account.ID
+		//dat["sname"] = account.GetSname()
 		if fields != nil {
 			for _, field := range fields {
 				switch field {
@@ -539,9 +540,9 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 					}
 					dat["sex"] = osex
 				case "fname":
-					dat["fname"] = account.FName
+					dat["fname"] = account.GetFname()
 				case "sname":
-					dat["sname"] = account.SName
+					dat["sname"] = account.GetSname()
 				case "phone":
 					dat["phone"] = account.Phone
 				case "city":

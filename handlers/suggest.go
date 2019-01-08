@@ -90,11 +90,11 @@ func suggestOutput(accounts []model.User) []byte {
 		dat["email"] = account.Email
 		dat["id"] = account.ID
 		dat["status"] = model.GetSPVal("status", uint16(account.Status))
-		if account.SName != "" {
-			dat["sname"] = account.SName
+		if account.SName != 0 {
+			dat["sname"] = account.GetSname()
 		}
-		if account.FName != "" {
-			dat["fname"] = account.FName
+		if account.FName != 0 {
+			dat["fname"] = account.GetFname()
 		}
 		out = append(out, dat)
 	}

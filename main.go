@@ -3,7 +3,6 @@ package main
 import (
 	"Concurs/handlers"
 	"Concurs/model"
-	"Concurs/util"
 
 	"bufio"
 	"encoding/json"
@@ -19,8 +18,8 @@ import (
 )
 
 const opt = "options.txt"
-const num = 130
-const base = "/home/sergey/Загрузки/data/data/" //"./data/"
+const num = 3
+const base = "./data/" //"./data/"
 
 func main() {
 
@@ -38,37 +37,55 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	gen := len(os.Args) > 1 && os.Args[1] == "gen"
-	accounts := make([]model.Account, 0)
-	users := make([]model.User, 0, num*10000)
+	// gen := len(os.Args) > 1 && os.Args[1] == "gen"
+	// accounts := make([]model.Account, 0)
+	bdata := make([]byte, 20000000)
+	//users := make([]model.User, 0, num*10000) //num*10000
 	for i := 1; i <= num; i++ {
 		fmt.Println("Номер ", i)
 		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
-		acc, err := getData(fname)
+		file, err := os.Open(fname)
+		if err != nil {
+			panic("Ошибка чтения")
+		}
+		n, err := file.Read(bdata)
+		if err != nil {
+			panic("Ошибка чтения 1")
+		}
+		bts := bdata[:n]
+		err = model.AddUsers(bts)
 		if err != nil {
 			panic(err)
 		}
-		acc = model.NormAll(acc)
-		if gen {
-			accounts = append(accounts, acc...)
-		} else {
-			for i := range acc {
-				user := model.Conv(acc[i])
-				if false {
-					fmt.Println(user.City)
-				}
-				model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
-				// добавление данных в карту кто-кого
-				for _, like := range acc[i].Likes {
-					model.AddWho(user.ID, like)
-				}
-				users = append(users, user)
+		//acc = model.NormAll(acc)
+		//-------------------------------
+		/*
+			acc, err := getData(fname)
+			if err != nil {
+				panic(err)
 			}
+			acc = model.NormAll(acc)
+			if gen {
+				accounts = append(accounts, acc...)
+			} else {
+				for i := range acc {
+					user := model.Conv(acc[i])
+					if false {
+						fmt.Println(i)
+					}
+					model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
+					// добавление данных в карту кто-кого
+					for _, like := range acc[i].Likes {
+						model.AddWho(user.ID, like)
+					}
+					users = append(users, user)
+				}
 
-		}
+			}
+		*/
 	}
 
-	// Генерация sql
+	/* Генерация sql
 	if gen {
 		fmt.Println("In SQL")
 		err = util.CreateTables(accounts)
@@ -77,7 +94,8 @@ func main() {
 		}
 		return
 	}
-	model.SetUsers(users)
+	*/
+	model.SetUsers()
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)

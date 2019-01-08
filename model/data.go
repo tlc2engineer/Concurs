@@ -6,7 +6,7 @@ import (
 )
 
 var WrMutex = new(sync.Mutex)
-var users []User
+var users = make([]User, 0)
 
 /*GetAccounts - Получение списка*/
 func GetAccounts() []User {
@@ -14,9 +14,13 @@ func GetAccounts() []User {
 }
 
 /*SetUsers - установка списка*/
-func SetUsers(acc []User) {
-	users = make([]User, 0, len(acc)) //двойная емкость
-	users = append(users, acc...)
+func SetUsers() {
+	// sort.Slice(acc, func(i, j int) bool {
+	// 	return acc[i].ID > acc[j].ID
+	// })
+	// fmt.Println("Sorted")
+	// //users = make([]User, 0, len(acc)*2) //двойная емкость
+	// users = acc
 	for i := range users {
 		id := users[i].ID
 		pacc := &users[i]
