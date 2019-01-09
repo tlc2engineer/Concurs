@@ -258,29 +258,28 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			model.SetLikes(uint32(id), model.PackLSlice(likes))
 			model.AddWhos(uint32(id), likes)
 			//Удалить старые лайки которых уже нет!
-			/*
-				oldLikes := model.GetLikes(uint32(id)) // старые лайки
-				ids := make([]uint32, 0)               // список несовпадающих лайков
-				for i := 0; i < len(oldLikes)/8; i++ {
-					var idLike uint32 // старый id
-					idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
-					found := false
-					for _, like := range likes {
-						if uint32(like.ID) == idLike {
-							found = true
-							break
-						}
-					}
-					if !found {
-						ids = append(ids, idLike)
+
+			oldLikes := model.GetLikes(uint32(id)) // старые лайки
+			ids := make([]uint32, 0)               // список несовпадающих лайков
+			for i := 0; i < len(oldLikes)/8; i++ {
+				var idLike uint32 // старый id
+				idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
+				found := false
+				for _, like := range likes {
+					if uint32(like.ID) == idLike {
+						found = true
+						break
 					}
 				}
-				// Цикл по номерам которые уже не предпочитает
-				for _, tid := range ids {
-					data, _ := model.GetWho(tid) // кто лайкал данный id
-					model.SetWho(uint32(tid), removeI(uint32(id), data))
+				if !found {
+					ids = append(ids, idLike)
 				}
-			*/
+			}
+			// Цикл по номерам которые уже не предпочитает
+			for _, tid := range ids {
+				data, _ := model.GetWho(tid) // кто лайкал данный id
+				model.SetWho(uint32(tid), removeI(uint32(id), data))
+			}
 
 		}
 	}
