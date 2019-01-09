@@ -278,7 +278,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			// Цикл по номерам которые уже не предпочитает
 			for _, tid := range ids {
 				data, _ := model.GetWho(tid) // кто лайкал данный id
-				model.SetWho(uint32(tid), removeI(uint32(id), data))
+				model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
 			}
 
 		}

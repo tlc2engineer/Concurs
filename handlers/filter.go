@@ -188,8 +188,9 @@ func Filter(ctx *fasthttp.RequestCtx) {
 					continue
 				}
 				//fmt.Println(ids)
-				for _, i := range ids {
-					accmap[i], _ = model.GetAccount(uint32(i))
+				for i := 0; i < ids.Len(); i++ {
+					idd := ids.GetId(i)
+					accmap[idd], _ = model.GetAccount(uint32(idd))
 					//accounts = append(accounts, acc)
 				}
 			}

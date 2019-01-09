@@ -115,7 +115,8 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 			continue
 		}
 		// добавляем других в карту
-		for _, o := range oth {
+		for i := 0; i < oth.Len(); i++ {
+			o := oth.GetId(i)
 			_, ok := wh[o]
 			if !ok {
 				wh[o] = true
