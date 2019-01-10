@@ -221,6 +221,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Phone = phone
 			model.UpdatePhone(phone, old)
 		case "fname":
+			model.UpdFname(paccount.ID, paccount.FName, fname)
 			paccount.SetFname(fname)
 		case "sname":
 			paccount.SetSname(sname)
@@ -233,22 +234,18 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		case "birth":
 			paccount.Birth = uint32(birth)
 		case "country":
-			_, ok := model.DataCountry[country]
-			if !ok {
-				model.DataCountry[country] = uint16(len(model.DataCountry) + 1)
-			}
-			paccount.Country = model.DataCountry[country]
+			model.UpdICountry(paccount.ID, paccount.Country, country) // обновить индекс
+			paccount.Country = model.DataCountry.GetOrAdd(country)
 		case "city":
-			_, ok := model.DataCity[city]
-			if !ok {
-				model.DataCity[city] = uint16(len(model.DataCity) + 1)
-			}
-			paccount.City = model.DataCity[city]
+			model.UpdICity(paccount.ID, paccount.City, city) // обновить индекс
+			paccount.City = model.DataCity.GetOrAdd(city)
 		case "joined":
 			paccount.Joined = uint32(joined)
 		case "status":
 			paccount.Status = model.DataStatus[status]
 		case "interests":
+			oldI := paccount.Interests                   // старые интересы
+			model.UpdInter(paccount.ID, oldI, interests) // обновить индекс
 			paccount.Interests = model.GetInterests(interests)
 		case "premium":
 			paccount.Start = uint32(start)
@@ -258,7 +255,6 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			model.SetLikes(uint32(id), model.PackLSlice(likes))
 			model.AddWhos(uint32(id), likes)
 			//Удалить старые лайки которых уже нет!
-
 			oldLikes := model.GetLikes(uint32(id)) // старые лайки
 			ids := make([]uint32, 0)               // список несовпадающих лайков
 			for i := 0; i < len(oldLikes)/8; i++ {
@@ -277,6 +273,9 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			}
 			// Цикл по номерам которые уже не предпочитает
 			for _, tid := range ids {
+				if tid == 31629 {
+					fmt.Println("Вот он!")
+				}
 				data, _ := model.GetWho(tid) // кто лайкал данный id
 				model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
 			}

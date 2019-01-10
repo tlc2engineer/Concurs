@@ -28,7 +28,6 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
-	accounts := model.GetAccounts()
 	parMap := make(map[string]sparam)
 	var limit int
 	limit = -1
@@ -89,15 +88,18 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	resp := make([]model.User, 0)
-	filtFunc := make([]func(model.User) bool, 0)
-	var f func(model.User) bool
+	//---------------------------------------------------
+	//accounts := model.GetAccounts()
+	accounts := model.IndexAgg(toMess(parMap))
+	//fmt.Println("--acc1--", len(accounts))
+	resp := make([]model.User, 0)                // ответ
+	filtFunc := make([]func(model.User) bool, 0) // список функций фильтрации
+	var f func(model.User) bool                  // промежуточная переменная
 	// установка фильтров
 	noneFlag := false
-
 	for k := range parMap {
 		switch k {
-		case "email", "fname", "sname", "phone":
+		case "email", "sname", "fname", "phone":
 			f = func(par string) func(acc model.User) bool {
 				return func(acc model.User) bool {
 					return filterAcc(acc, par, parMap)
@@ -115,25 +117,27 @@ func Filter(ctx *fasthttp.RequestCtx) {
 					if par == "0" {
 						return acc.City != 0
 					}
-				case "eq":
-					city, ok := model.DataCity[par]
-					if !ok {
-						return false //noneFlag = true
-					}
-					return acc.City == city
-				case "any":
-					if acc.City == 0 {
-						return false
-					}
-					cities := strings.Split(par, ",")
-					for _, city := range cities {
-						if model.DataCity[city] == acc.City {
-							return true
-						}
-					}
-					return false
+					/*
+						case "eq":
+							city, ok := model.DataCity[par]
+							if !ok {
+								return false //noneFlag = true
+							}
+							return acc.City == city
+						case "any":
+							if acc.City == 0 {
+								return false
+							}
+							cities := strings.Split(par, ",")
+							for _, city := range cities {
+								if model.DataCity[city] == acc.City {
+									return true
+								}
+							}
+							return false
+					*/
 				}
-				return false
+				return true
 			}
 		case "country":
 			f = func(acc model.User) bool {
@@ -141,16 +145,18 @@ func Filter(ctx *fasthttp.RequestCtx) {
 				par := parMap["country"].par
 				switch pred {
 				case "null":
-					if par == "1" {
-						return acc.Country == 0
-					}
+					// if par == "1" {
+					// 	return acc.Country == 0
+					// }
 					if par == "0" {
 						return acc.Country != 0
 					}
-				case "eq":
-					return acc.Country == model.DataCountry[par]
+					/*
+						case "eq":
+							return acc.Country == model.DataCountry[par]
+					*/
 				}
-				return false
+				return true
 			}
 		case "sex":
 			f = func(acc model.User) bool {
@@ -221,6 +227,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		retZero(ctx)
 		return
 	}
+	//fmt.Println("--acc--", len(accounts))
 	// фильтрация
 m1:
 	for _, account := range accounts {
@@ -582,4 +589,13 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 	resp["accounts"] = out
 	bts, _ := json.Marshal(resp)
 	return bts
+}
+
+func toMess(m map[string]sparam) []model.Mess {
+	out := make([]model.Mess, len(m))
+	for k, v := range m {
+		mess := model.Mess{Par: k, Val: v.par, Act: v.pred}
+		out = append(out, mess)
+	}
+	return out
 }
