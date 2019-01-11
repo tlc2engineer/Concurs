@@ -57,12 +57,12 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		return
 	}
 	// фильтрация по стране  полу городу
-	cityVal, ok := model.DataCity[city]
+	cityVal, ok := model.DataCity.Get(city)
 	if !ok {
 		retZero(ctx)
 		return
 	}
-	countryVal, ok := model.DataCountry[country]
+	countryVal, ok := model.DataCountry.Get(country)
 	if !ok {
 		retZero(ctx)
 		return
@@ -74,7 +74,9 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	for _, lid := range lids {
 		idMap[uint32(lid.ID)] = false
 	}
-	sugg := getSuggestAcc(filtered, idMap, limit, model.DataCity[city], model.DataCountry[country])
+	kcity, _ := model.DataCity.Get(city)
+	kcountry, _ := model.DataCountry.Get(country)
+	sugg := getSuggestAcc(filtered, idMap, limit, kcity, kcountry)
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)

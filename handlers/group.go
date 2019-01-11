@@ -36,7 +36,7 @@ type groupRes struct {
 
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
-
+	//now := time.Now()
 	//vars := r.URL.Query()
 	//Ключи группировки и их верификация
 	vkey := string(ctx.QueryArgs().Peek("keys"))
@@ -114,7 +114,8 @@ func Group(ctx *fasthttp.RequestCtx) {
 
 	// Фильтрация
 	//filtered := make([]model.User, 0)
-	accounts := model.GetAccounts()
+	accounts := model.GroupAgg(toMessG(actParams))
+	//accounts := model.GetAccounts()
 	limit := -1
 	limP, ok := actParams["limit"]
 	if ok {
@@ -130,13 +131,15 @@ func Group(ctx *fasthttp.RequestCtx) {
 	for _, account := range accounts {
 		cityP, ok := actParams["city"]
 		if ok {
-			if account.City != model.DataCity[cityP.sval] {
+			v, _ := model.DataCity.Get(cityP.sval)
+			if account.City != v {
 				continue
 			}
 		}
 		countryP, ok := actParams["country"]
 		if ok {
-			if account.Country != model.DataCountry[countryP.sval] {
+			v, _ := model.DataCountry.Get(countryP.sval)
+			if account.Country != v {
 				continue
 			}
 		}
@@ -158,7 +161,8 @@ func Group(ctx *fasthttp.RequestCtx) {
 			interestV := interestP.sval
 			found := false
 			for _, interest := range account.Interests {
-				if interest == model.DataInter[interestV] {
+				v, _ := model.DataInter.Get(interestV)
+				if interest == v {
 					found = true
 					break
 				}
@@ -253,6 +257,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
 	ctx.Write(bts)
+	//fmt.Println(time.Since(now), string(ctx.URI().QueryString()))
 }
 
 /*createGroupOutput -вывод данных*/
@@ -431,4 +436,22 @@ func unpackKey(vkey uint64, keys []string) map[string]uint16 {
 		}
 	}
 	return m
+}
+
+func toMessG(in map[string]param) []model.Mess {
+	out := make([]model.Mess, 0, len(in))
+	for k, v := range in {
+		var val string
+		switch v.tp {
+		case it:
+			val = fmt.Sprintf("%d", v.ival)
+		case st:
+			val = v.sval
+		case dt:
+			val = fmt.Sprintf("%d", v.dval.Unix())
+		}
+		m := model.Mess{Par: k, Val: val, Act: ""}
+		out = append(out, m)
+	}
+	return out
 }

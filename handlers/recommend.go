@@ -29,7 +29,7 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 			if city == "" {
 				errFlag = true
 			}
-			_, ok := model.DataCity[city]
+			_, ok := model.DataCity.Get(city)
 			if !ok {
 				noneFlag = true
 			}
@@ -38,7 +38,7 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 			if country == "" {
 				errFlag = true
 			}
-			_, ok := model.DataCountry[country]
+			_, ok := model.DataCountry.Get(country)
 			if !ok {
 				noneFlag = true
 			}
@@ -73,7 +73,9 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		return
 	}
 	// фильтрация
-	filtered := filterRecommend(account, model.DataCountry[country], model.DataCity[city])
+	kcountry, _ := model.DataCountry.Get(country)
+	kcity, _ := model.DataCity.Get(city)
+	filtered := filterRecommend(account, kcountry, kcity)
 	sort.Slice(filtered, func(i, j int) bool {
 		f := filtered[i]
 		s := filtered[j]

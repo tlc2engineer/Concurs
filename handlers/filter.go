@@ -400,7 +400,7 @@ func filterInterests(account model.User, pname string, parMap map[string]sparam)
 	pari := strings.Split(par, ",")
 	dat := make([]uint16, len(pari))
 	for i := range pari {
-		dat[i] = model.DataInter[pari[i]]
+		dat[i], _ = model.DataInter.Get(pari[i])
 	}
 	switch pred {
 	case "contains":
@@ -429,7 +429,8 @@ func filterInterests(account model.User, pname string, parMap map[string]sparam)
 		return false
 	case "neq":
 		for _, inter := range interests {
-			if model.DataInter[par] != inter {
+			v, _ := model.DataInter.Get(par)
+			if v != inter {
 				return false
 			}
 		}
@@ -554,13 +555,13 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 				case "phone":
 					dat["phone"] = account.Phone
 				case "city":
-					for k, v := range model.DataCity {
+					for k, v := range model.DataCity.GetMap() {
 						if v == account.City {
 							dat["city"] = k
 						}
 					}
 				case "country":
-					for k, v := range model.DataCountry {
+					for k, v := range model.DataCountry.GetMap() {
 						if v == account.Country {
 							dat["country"] = k
 						}
