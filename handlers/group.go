@@ -36,6 +36,7 @@ type groupRes struct {
 
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
+
 	//vars := r.URL.Query()
 	//Ключи группировки и их верификация
 	vkey := string(ctx.QueryArgs().Peek("keys"))
@@ -107,8 +108,12 @@ func Group(ctx *fasthttp.RequestCtx) {
 
 		}
 	}
+	// группировка
+	resMap := make(map[uint64]int) // карта группировки
+	fkey := createFKey(keys)       // преобразование в ключ поиска
+
 	// Фильтрация
-	filtered := make([]model.User, 0)
+	//filtered := make([]model.User, 0)
 	accounts := model.GetAccounts()
 	limit := -1
 	limP, ok := actParams["limit"]
@@ -120,6 +125,8 @@ func Group(ctx *fasthttp.RequestCtx) {
 	if ok {
 		order = int(orderP.ival)
 	}
+
+	// основной цикл
 	for _, account := range accounts {
 		cityP, ok := actParams["city"]
 		if ok {
@@ -185,14 +192,8 @@ func Group(ctx *fasthttp.RequestCtx) {
 				continue
 			}
 		}
-		filtered = append(filtered, account)
-	}
-
-	// группировка
-	resMap := make(map[uint64]int) // карта группировки
-	fkey := createFKey(keys)       // преобразование в ключ поиска
-	for _, acc := range filtered { // цикл по всем
-		newSres := fkey(acc)
+		// группировка
+		newSres := fkey(account)
 		for _, r := range newSres {
 			count, ok := resMap[r]
 			if ok {
@@ -202,6 +203,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 				resMap[r] = 1
 			}
 		}
+		//filtered = append(filtered, account)
 	}
 	//преобразование карты в срез результатов
 	results := make([]res, 0, len(resMap)) //результаты группировки
@@ -241,62 +243,10 @@ func Group(ctx *fasthttp.RequestCtx) {
 			return false
 		})
 	}
+	// ограничение по длине
 	if len(results) > limit {
 		results = results[:limit]
 	}
-	// Группировка
-	/*
-			gres := []groupRes{groupRes{params: map[string]uint16{}, accounts: filtered}} // результат
-			for _, key := range keys {
-				if key != "interests" {
-					gres = groupResults(key, gres)
-				} else {
-					gres = groupInterests(gres)
-				}
-			}
-			filGres := make([]groupRes, 0, len(gres))
-			for i := range gres {
-				gres[i].count = len(gres[i].accounts)
-				gres[i].accounts = nil
-				if len(gres[i].params) == len(keys) {
-					filGres = append(filGres, gres[i])
-				}
-			}
-
-		if order == 1 {
-			sort.Slice(filGres, func(i, j int) bool {
-				if filGres[i].count != filGres[j].count {
-					return filGres[i].count < filGres[j].count
-				}
-				for _, key := range keys {
-					if filGres[i].params[key] != filGres[j].params[key] {
-						return strings.Compare(model.GetSPVal(key, filGres[i].params[key]), model.GetSPVal(key, filGres[j].params[key])) < 0
-					}
-				}
-				return false
-			})
-		}
-		if order == -1 {
-			sort.Slice(filGres, func(i, j int) bool {
-				if filGres[i].count != filGres[j].count {
-					return filGres[i].count > filGres[j].count
-				}
-				for _, key := range keys {
-					if filGres[i].params[key] != filGres[j].params[key] {
-						if filGres[i].params[key] != filGres[j].params[key] {
-							return strings.Compare(model.GetSPVal(key, filGres[j].params[key]), model.GetSPVal(key, filGres[i].params[key])) < 0
-						}
-					}
-				}
-				return false
-
-			})
-		}
-
-		if len(filGres) > limit {
-			filGres = filGres[:limit]
-		}
-	*/
 	// Вывод
 	bts := createGroupOutput(results, keys)
 	ctx.SetContentType("application/json")
