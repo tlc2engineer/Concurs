@@ -187,9 +187,11 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 		filtered = append(filtered, account)
 	}
+
+	// группировка
 	resMap := make(map[uint64]int) // карта группировки
 	fkey := createFKey(keys)       // преобразование в ключ поиска
-	for _, acc := range accounts { // цикл по всем
+	for _, acc := range filtered { // цикл по всем
 		newSres := fkey(acc)
 		for _, r := range newSres {
 			count, ok := resMap[r]
@@ -202,11 +204,12 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 	}
 	//преобразование карты в срез результатов
-	results := make([]res, len(resMap)) //результаты группировки
+	results := make([]res, 0, len(resMap)) //результаты группировки
 	for k, v := range resMap {
 		result := res{unpackKey(k, keys), v}
 		results = append(results, result)
 	}
+	//fmt.Println(len(resMap), len(results))
 	// Сортировка
 	if order == 1 {
 		sort.Slice(results, func(i, j int) bool {
@@ -315,8 +318,9 @@ func createGroupOutput(res []res, keys []string) []byte {
 					switch key {
 					case "sex", "city", "country", "status":
 						dat[key] = model.GetSPVal(key, r.par[key])
-						//case "interests":
-
+						// if key == "status" {
+						// 	fmt.Println(r.par[key], dat[key])
+						// }
 					}
 				}
 			}
@@ -443,9 +447,10 @@ func createFKey(keys []string) func(user model.User) []uint64 {
 				}
 
 			}
+
 			// запаковка
 			for j := 0; j < len(buff); j++ {
-				out[i] |= uint64(buff[j]) << uint16(i) * 8
+				out[i] |= uint64(buff[j]) << (uint16(j) * 8)
 			}
 		}
 		return out
@@ -463,13 +468,14 @@ func unpackKey(vkey uint64, keys []string) map[string]uint16 {
 	for _, k := range keys {
 		switch k {
 		case "interests", "city", "country": // 2 байта
-			b0 := byte(vkey >> uint16(mark) * 8)
-			b1 := byte(vkey >> uint16(mark+1) * 8)
-			val := uint64(b0) | uint64(b1)<<8
+			b0 := byte(vkey >> (uint16(mark) * 8))
+			b1 := byte(vkey >> (uint16(mark+1) * 8))
+			val := uint64(b0) | (uint64(b1) << 8)
 			m[k] = uint16(val)
 			mark += 2
 		case "status", "sex": // 1 байт
-			b0 := byte(vkey >> uint16(mark) * 8)
+			b0 := byte(vkey >> (uint16(mark) * 8))
+			//fmt.Println("-------", b0, vkey, mark)
 			m[k] = uint16(b0)
 			mark++
 		}
