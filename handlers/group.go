@@ -187,59 +187,115 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 		filtered = append(filtered, account)
 	}
-	// Группировка
-	gres := []groupRes{groupRes{params: map[string]uint16{}, accounts: filtered}} // результат
-	for _, key := range keys {
-		if key != "interests" {
-			gres = groupResults(key, gres)
-		} else {
-			gres = groupInterests(gres)
+	resMap := make(map[uint64]int) // карта группировки
+	fkey := createFKey(keys)       // преобразование в ключ поиска
+	for _, acc := range accounts { // цикл по всем
+		newSres := fkey(acc)
+		for _, r := range newSres {
+			count, ok := resMap[r]
+			if ok {
+				count++
+				resMap[r] = count
+			} else {
+				resMap[r] = 1
+			}
 		}
 	}
-	filGres := make([]groupRes, 0, len(gres))
-	for i := range gres {
-		gres[i].count = len(gres[i].accounts)
-		gres[i].accounts = nil
-		if len(gres[i].params) == len(keys) {
-			filGres = append(filGres, gres[i])
-		}
+	//преобразование карты в срез результатов
+	results := make([]res, len(resMap)) //результаты группировки
+	for k, v := range resMap {
+		result := res{unpackKey(k, keys), v}
+		results = append(results, result)
 	}
-
+	// Сортировка
 	if order == 1 {
-		sort.Slice(filGres, func(i, j int) bool {
-			if filGres[i].count != filGres[j].count {
-				return filGres[i].count < filGres[j].count
+		sort.Slice(results, func(i, j int) bool {
+			f := results[i]
+			s := results[j]
+			if s.count != f.count {
+				return f.count < s.count
 			}
 			for _, key := range keys {
-				if filGres[i].params[key] != filGres[j].params[key] {
-					return strings.Compare(model.GetSPVal(key, filGres[i].params[key]), model.GetSPVal(key, filGres[j].params[key])) < 0
+				if f.par[key] != s.par[key] {
+					return strings.Compare(model.GetSPVal(key, f.par[key]), model.GetSPVal(key, s.par[key])) < 0
 				}
 			}
 			return false
 		})
 	}
 	if order == -1 {
-		sort.Slice(filGres, func(i, j int) bool {
-			if filGres[i].count != filGres[j].count {
-				return filGres[i].count > filGres[j].count
+		sort.Slice(results, func(i, j int) bool {
+			f := results[i]
+			s := results[j]
+			if s.count != f.count {
+				return f.count > s.count
 			}
 			for _, key := range keys {
-				if filGres[i].params[key] != filGres[j].params[key] {
-					if filGres[i].params[key] != filGres[j].params[key] {
-						return strings.Compare(model.GetSPVal(key, filGres[j].params[key]), model.GetSPVal(key, filGres[i].params[key])) < 0
-					}
+				if f.par[key] != s.par[key] {
+					return strings.Compare(model.GetSPVal(key, f.par[key]), model.GetSPVal(key, s.par[key])) > 0
 				}
 			}
 			return false
-
 		})
 	}
-
-	if len(filGres) > limit {
-		filGres = filGres[:limit]
+	if len(results) > limit {
+		results = results[:limit]
 	}
+	// Группировка
+	/*
+			gres := []groupRes{groupRes{params: map[string]uint16{}, accounts: filtered}} // результат
+			for _, key := range keys {
+				if key != "interests" {
+					gres = groupResults(key, gres)
+				} else {
+					gres = groupInterests(gres)
+				}
+			}
+			filGres := make([]groupRes, 0, len(gres))
+			for i := range gres {
+				gres[i].count = len(gres[i].accounts)
+				gres[i].accounts = nil
+				if len(gres[i].params) == len(keys) {
+					filGres = append(filGres, gres[i])
+				}
+			}
+
+		if order == 1 {
+			sort.Slice(filGres, func(i, j int) bool {
+				if filGres[i].count != filGres[j].count {
+					return filGres[i].count < filGres[j].count
+				}
+				for _, key := range keys {
+					if filGres[i].params[key] != filGres[j].params[key] {
+						return strings.Compare(model.GetSPVal(key, filGres[i].params[key]), model.GetSPVal(key, filGres[j].params[key])) < 0
+					}
+				}
+				return false
+			})
+		}
+		if order == -1 {
+			sort.Slice(filGres, func(i, j int) bool {
+				if filGres[i].count != filGres[j].count {
+					return filGres[i].count > filGres[j].count
+				}
+				for _, key := range keys {
+					if filGres[i].params[key] != filGres[j].params[key] {
+						if filGres[i].params[key] != filGres[j].params[key] {
+							return strings.Compare(model.GetSPVal(key, filGres[j].params[key]), model.GetSPVal(key, filGres[i].params[key])) < 0
+						}
+					}
+				}
+				return false
+
+			})
+		}
+
+		if len(filGres) > limit {
+			filGres = filGres[:limit]
+		}
+	*/
 	// Вывод
-	bts := createGroupOutput(filGres, keys)
+	bts := createGroupOutput(results, keys)
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
@@ -247,18 +303,18 @@ func Group(ctx *fasthttp.RequestCtx) {
 }
 
 /*createGroupOutput -вывод данных*/
-func createGroupOutput(res []groupRes, keys []string) []byte {
+func createGroupOutput(res []res, keys []string) []byte {
 	resp := make(map[string][]map[string]interface{})
 	out := make([]map[string]interface{}, 0, len(res))
 	for _, r := range res {
-		if len(r.params) == len(keys) {
+		if len(r.par) == len(keys) {
 			dat := make(map[string]interface{})
 			dat["count"] = r.count
 			for _, key := range keys {
-				if !(r.params[key] == 0 && (key == "city" || key == "country")) {
+				if !(r.par[key] == 0 && (key == "city" || key == "country")) {
 					switch key {
 					case "sex", "city", "country", "status":
-						dat[key] = model.GetSPVal(key, r.params[key])
+						dat[key] = model.GetSPVal(key, r.par[key])
 						//case "interests":
 
 					}
@@ -341,4 +397,82 @@ func groupInterests(results []groupRes) []groupRes {
 		}
 	}
 	return results
+}
+
+/*createFKey - создается функция которая генерирует ключ*/
+func createFKey(keys []string) func(user model.User) []uint64 {
+	f := false // флаг интересов
+	for _, key := range keys {
+		if key == "interests" {
+			f = true
+		}
+	}
+	return func(user model.User) []uint64 {
+		cnt := 1 // число интересов если они есть
+		if f {
+			cnt = len(user.Interests) // если есть интересы
+		}
+		out := make([]uint64, cnt)
+		for i := 0; i < cnt; i++ {
+			var buff = make([]byte, 0)
+			for _, key := range keys {
+				switch key {
+				case "interests":
+					inter := user.Interests[i]
+					b0 := byte(inter)
+					b1 := byte(inter >> 8)
+					buff = append(buff, b0, b1)
+				case "city":
+					city := user.City
+					b0 := byte(city)
+					b1 := byte(city >> 8)
+					buff = append(buff, b0, b1)
+				case "country":
+					country := user.Country
+					b0 := byte(country)
+					b1 := byte(country >> 8)
+					buff = append(buff, b0, b1)
+				case "status":
+					buff = append(buff, user.Status)
+				case "sex":
+					if user.Sex {
+						buff = append(buff, 1)
+					} else {
+						buff = append(buff, 0)
+					}
+				}
+
+			}
+			// запаковка
+			for j := 0; j < len(buff); j++ {
+				out[i] |= uint64(buff[j]) << uint16(i) * 8
+			}
+		}
+		return out
+	}
+}
+
+type res struct {
+	par   map[string]uint16
+	count int
+}
+
+func unpackKey(vkey uint64, keys []string) map[string]uint16 {
+	m := make(map[string]uint16)
+	mark := 0
+	for _, k := range keys {
+		switch k {
+		case "interests", "city", "country": // 2 байта
+			b0 := byte(vkey >> uint16(mark) * 8)
+			b1 := byte(vkey >> uint16(mark+1) * 8)
+			val := uint64(b0) | uint64(b1)<<8
+			m[k] = uint16(val)
+			mark += 2
+		case "status", "sex": // 1 байт
+			b0 := byte(vkey >> uint16(mark) * 8)
+			m[k] = uint16(b0)
+			mark++
+		}
+	}
+	return m
 }
