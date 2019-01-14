@@ -19,7 +19,7 @@ import (
 
 const opt = "options.txt"
 const num = 3
-const base = "./data/" //"./data/"
+const base = "./data/" //"/home/sergey/Загрузки/data/data/"
 
 func main() {
 
@@ -57,32 +57,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		//acc = model.NormAll(acc)
-		//-------------------------------
-		/*
-			acc, err := getData(fname)
-			if err != nil {
-				panic(err)
-			}
-			acc = model.NormAll(acc)
-			if gen {
-				accounts = append(accounts, acc...)
-			} else {
-				for i := range acc {
-					user := model.Conv(acc[i])
-					if false {
-						fmt.Println(i)
-					}
-					model.SetLikes(user.ID, model.PackLSlice(acc[i].Likes))
-					// добавление данных в карту кто-кого
-					for _, like := range acc[i].Likes {
-						model.AddWho(user.ID, like)
-					}
-					users = append(users, user)
-				}
 
-			}
-		*/
 	}
 
 	/* Генерация sql

@@ -143,20 +143,21 @@ func Group(ctx *fasthttp.RequestCtx) {
 				continue
 			}
 		}
-		if likesP, ok := actParams["likes"]; ok {
-			likeID := likesP.ival
-			found := false
-			id := account.ID
-			for _, like := range model.UnPackLSlice(model.GetLikes(id)) {
-				if like.ID == likeID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				continue
-			}
-		}
+
+		// if likesP, ok := actParams["likes"]; ok {
+		// 	likeID := likesP.ival
+		// 	found := false
+		// 	id := account.ID
+		// 	for _, like := range model.UnPackLSlice(model.GetLikes(id)) {
+		// 		if like.ID == likeID {
+		// 			found = true
+		// 			break
+		// 		}
+		// 	}
+		// 	if !found {
+		// 		continue
+		// 	}
+		// }
 		if interestP, ok := actParams["interests"]; ok {
 			interestV := interestP.sval
 			found := false

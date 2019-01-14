@@ -181,33 +181,33 @@ func Filter(ctx *fasthttp.RequestCtx) {
 			}
 		case "likes":
 			//accounts = make([]model.User, 0)
-			accmap := make(map[uint32]model.User)
-			par := parMap["likes"].par
-			if par == "" {
-				continue
-			}
-			args := strings.Split(par, ",")
-			for _, p := range args {
-				num, _ := strconv.ParseInt(p, 10, 0)
-				ids, err := model.GetWho(uint32(num))
-				if err != nil {
-					continue
-				}
-				//fmt.Println(ids)
-				for i := 0; i < ids.Len(); i++ {
-					idd := ids.GetId(i)
-					accmap[idd], _ = model.GetAccount(uint32(idd))
-					//accounts = append(accounts, acc)
-				}
-			}
-			accounts = make([]model.User, 0)
-			for _, acc := range accmap {
-				accounts = append(accounts, acc)
-			}
-			//continue
-			f = func(acc model.User) bool {
-				return filterLikes(acc, "likes", parMap)
-			}
+			// accmap := make(map[uint32]model.User)
+			// par := parMap["likes"].par
+			// if par == "" {
+			// 	continue
+			// }
+			// args := strings.Split(par, ",")
+			// for _, p := range args {
+			// 	num, _ := strconv.ParseInt(p, 10, 0)
+			// 	ids, err := model.GetWho(uint32(num))
+			// 	if err != nil {
+			// 		continue
+			// 	}
+			// 	//fmt.Println(ids)
+			// 	for i := 0; i < ids.Len(); i++ {
+			// 		idd := ids.GetId(i)
+			// 		accmap[idd], _ = model.GetAccount(uint32(idd))
+			// 		//accounts = append(accounts, acc)
+			// 	}
+			// }
+			// accounts = make([]model.User, 0)
+			// for _, acc := range accmap {
+			// 	accounts = append(accounts, acc)
+			// }
+			continue
+			// f = func(acc model.User) bool {
+			// 	return filterLikes(acc, "likes", parMap)
+			// }
 		case "premium":
 			f = func(acc model.User) bool {
 				return filterPremium(acc, "premium", parMap)
