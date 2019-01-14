@@ -4,7 +4,6 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -229,15 +228,19 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	}
 	//fmt.Println("--acc--", len(accounts))
 	// фильтрация
+	ln := len(accounts)
 m1:
-	for _, account := range accounts {
+	for i := ln - 1; i >= 0; i-- {
 
 		for _, f := range filtFunc {
-			if !f(account) {
+			if !f(accounts[i]) {
 				continue m1
 			}
 		}
-		resp = append(resp, account)
+		resp = append(resp, accounts[i])
+		if len(resp) >= limit { // все
+			break
+		}
 	}
 	fields := make([]string, 0)
 	for k := range parMap {
@@ -246,9 +249,9 @@ m1:
 			fields = append(fields, k)
 		}
 	}
-	sort.Slice(resp, func(i, j int) bool {
-		return resp[i].ID > resp[j].ID
-	})
+	// sort.Slice(resp, func(i, j int) bool {
+	// 	return resp[i].ID > resp[j].ID
+	// })
 	if len(resp) > limit {
 		resp = resp[:limit]
 	}
