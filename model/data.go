@@ -30,6 +30,7 @@ func SetUsers() {
 			PhoneMap[pacc.Phone] = uint32(pacc.ID)
 		}
 	}
+	fmt.Println("Окончание упаковки")
 }
 
 /*GetAccount - получение значения аккаунта*/

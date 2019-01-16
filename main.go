@@ -19,7 +19,7 @@ import (
 
 const opt = "options.txt"
 const num = 3
-const base = "./data/" //"/home/sergey/Загрузки/data/data/"
+const base = "./data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
 
 func main() {
 
@@ -34,6 +34,7 @@ func main() {
 		panic(err)
 	}
 	model.Now, err = strconv.ParseInt(string(line), 10, 0)
+
 	if err != nil {
 		panic(err)
 	}

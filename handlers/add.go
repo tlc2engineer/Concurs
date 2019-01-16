@@ -42,6 +42,7 @@ func Add(ctx *fasthttp.RequestCtx) {
 	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
+
 	if !ctx.QueryArgs().Has("query_id") {
 		ctx.SetStatusCode(400)
 		return
