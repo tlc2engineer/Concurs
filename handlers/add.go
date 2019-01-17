@@ -24,6 +24,8 @@ var HRTime int64
 /*LPTime - нижняя граница премиум*/
 var LPTime int64
 
+var zeroOut []byte
+
 func init() {
 	ttime, _ := time.Parse(time.RFC3339, "1950-01-01T00:00:00Z")
 	LBtime = ttime.Unix()
@@ -35,6 +37,10 @@ func init() {
 	HRTime = hrtime.Unix()
 	lptime, _ := time.Parse(time.RFC3339, "2018-01-01T00:00:00Z")
 	LPTime = lptime.Unix()
+	resp := make(map[string][]map[string]interface{})
+	out := make([]map[string]interface{}, 0, 0)
+	resp["accounts"] = out
+	zeroOut, _ = json.Marshal(resp)
 }
 
 /*Add - добавление нового аккаунта*/

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -15,12 +16,13 @@ func GetAccounts() []User {
 
 /*SetUsers - установка списка*/
 func SetUsers() {
-	// sort.Slice(acc, func(i, j int) bool {
-	// 	return acc[i].ID > acc[j].ID
-	// })
-	// fmt.Println("Sorted")
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].ID < users[j].ID
+	})
+	fmt.Println("Сортировано")
 	// //users = make([]User, 0, len(acc)*2) //двойная емкость
 	// users = acc
+
 	for i := range users {
 		id := users[i].ID
 		pacc := &users[i]
@@ -44,8 +46,25 @@ func GetAccount(id uint32) (User, error) {
 
 /*AddAcc - добавление элемента*/
 func AddAcc(user User) {
-	users = append(users, user)             // добавление в список
-	MainMap[user.ID] = &users[len(users)-1] // указатель на последний элемент в карту
+	ln := len(users)
+	if ln > 0 && user.ID < users[ln-1].ID { // если больше последнего элемента добавляем в конец иначе вставка
+		i := ln - 1 // начиная с последнего элемента
+		for i >= 0 && user.ID < users[ln-1].ID {
+			i--
+		}
+		//вставка
+		users = append(users, User{})
+		copy(users[i+2:], users[i+1:]) // вставляем id перед i
+		users[i+1] = user
+		for j := range users[i:] { //изменяем указатели
+			MainMap[users[j].ID] = &users[j]
+		}
+		fmt.Println("---Insert---")
+	} else {
+		users = append(users, user)
+		MainMap[user.ID] = &users[len(users)-1] // указатель на последний элемент в карту
+	} // добавление в список
+
 	MailMap[user.Email] = uint32(users[len(users)-1].ID)
 	if user.Phone != "" {
 		PhoneMap[user.Phone] = uint32(users[len(users)-1].ID)

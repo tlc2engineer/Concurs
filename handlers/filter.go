@@ -25,6 +25,8 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 	"city": {"null", "eq", "any"}, "status": {"eq", "neq"}, "interests": {"any", "contains"}, "birth": {"lt", "gt", "year"},
 	"premium": {"now", "null"}, "likes": {"contains"}}
 
+var uBuff = make([]model.User, 0, 1000)
+
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
 	parMap := make(map[string]sparam)
@@ -88,11 +90,10 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
+
 	//---------------------------------------------------
 	//accounts := model.GetAccounts()
-	accounts := model.IndexAgg(toMess(parMap))
-	//fmt.Println("--acc1--", len(accounts))
-	resp := make([]model.User, 0)                // ответ
+	// ответ
 	filtFunc := make([]func(model.User) bool, 0) // список функций фильтрации
 	var f func(model.User) bool                  // промежуточная переменная
 	// установка фильтров
@@ -180,34 +181,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 				return filterInterests(acc, "interests", parMap)
 			}
 		case "likes":
-			//accounts = make([]model.User, 0)
-			// accmap := make(map[uint32]model.User)
-			// par := parMap["likes"].par
-			// if par == "" {
-			// 	continue
-			// }
-			// args := strings.Split(par, ",")
-			// for _, p := range args {
-			// 	num, _ := strconv.ParseInt(p, 10, 0)
-			// 	ids, err := model.GetWho(uint32(num))
-			// 	if err != nil {
-			// 		continue
-			// 	}
-			// 	//fmt.Println(ids)
-			// 	for i := 0; i < ids.Len(); i++ {
-			// 		idd := ids.GetId(i)
-			// 		accmap[idd], _ = model.GetAccount(uint32(idd))
-			// 		//accounts = append(accounts, acc)
-			// 	}
-			// }
-			// accounts = make([]model.User, 0)
-			// for _, acc := range accmap {
-			// 	accounts = append(accounts, acc)
-			// }
 			continue
-			// f = func(acc model.User) bool {
-			// 	return filterLikes(acc, "likes", parMap)
-			// }
 		case "premium":
 			f = func(acc model.User) bool {
 				return filterPremium(acc, "premium", parMap)
@@ -227,21 +201,28 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		retZero(ctx)
 		return
 	}
-	//fmt.Println("--acc--", len(accounts))
-	// фильтрация
-	ln := len(accounts)
-m1:
-	for i := ln - 1; i >= 0; i-- {
+	var resp []model.User
+	accounts := model.IndexAgg(toMess(parMap), filtFunc, limit)
+	if accounts == nil { // общий цикл
+		uBuff = uBuff[:0]
+		resp = uBuff
+		accounts = model.GetAccounts()
+		ln := len(accounts)
+	m1:
+		for i := ln - 1; i >= 0; i-- {
 
-		for _, f := range filtFunc {
-			if !f(accounts[i]) {
-				continue m1
+			for _, f := range filtFunc {
+				if !f(accounts[i]) {
+					continue m1
+				}
+			}
+			resp = append(resp, accounts[i])
+			if len(resp) >= limit { // все
+				break
 			}
 		}
-		resp = append(resp, accounts[i])
-		if len(resp) >= limit { // все
-			break
-		}
+	} else {
+		resp = accounts
 	}
 	fields := make([]string, 0)
 	for k := range parMap {
@@ -250,9 +231,6 @@ m1:
 			fields = append(fields, k)
 		}
 	}
-	// sort.Slice(resp, func(i, j int) bool {
-	// 	return resp[i].ID > resp[j].ID
-	// })
 	if len(resp) > limit {
 		resp = resp[:limit]
 	}
