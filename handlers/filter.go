@@ -107,84 +107,138 @@ func Filter(ctx *fasthttp.RequestCtx) {
 				}
 			}(k)
 		case "city":
-			f = func(acc model.User) bool {
-				pred := parMap["city"].pred
-				par := parMap["city"].par
-				switch pred {
-				case "null":
-					if par == "1" {
+			pred := parMap["city"].pred
+			par := parMap["city"].par
+			switch pred {
+			case "null":
+				if par == "1" {
+					f = func(acc model.User) bool {
 						return acc.City == 0
 					}
-					if par == "0" {
+				}
+				if par == "0" {
+					f = func(acc model.User) bool {
 						return acc.City != 0
 					}
-					/*
-						case "eq":
-							city, ok := model.DataCity[par]
-							if !ok {
-								return false //noneFlag = true
-							}
-							return acc.City == city
-						case "any":
-							if acc.City == 0 {
-								return false
-							}
-							cities := strings.Split(par, ",")
-							for _, city := range cities {
-								if model.DataCity[city] == acc.City {
-									return true
-								}
-							}
-							return false
-					*/
 				}
-				return true
+			default:
+				continue
 			}
+
 		case "country":
-			f = func(acc model.User) bool {
-				pred := parMap["country"].pred
-				par := parMap["country"].par
-				switch pred {
-				case "null":
-					// if par == "1" {
-					// 	return acc.Country == 0
-					// }
-					if par == "0" {
-						return acc.Country != 0
-					}
-					/*
-						case "eq":
-							return acc.Country == model.DataCountry[par]
-					*/
+			pred := parMap["country"].pred
+			par := parMap["country"].par
+			if pred == "null" && par == "0" {
+				f = func(acc model.User) bool {
+					return acc.Country != 0
 				}
-				return true
+			} else {
+				continue
 			}
 		case "sex":
-			f = func(acc model.User) bool {
-				par := parMap["sex"].par
-				return ((par == "m") && acc.Sex) || ((par == "f") && !acc.Sex)
+			par := parMap["sex"].par
+			if par == "m" {
+				f = func(acc model.User) bool {
+					return acc.Sex
+				}
+			} else {
+				f = func(acc model.User) bool {
+					return !acc.Sex
+				}
 			}
 		case "status":
-			f = func(acc model.User) bool {
-				pred := parMap["status"].pred
-				par := parMap["status"].par
-				switch pred {
-				case "eq":
-					return acc.Status == model.DataStatus[par]
-				case "neq":
-					return acc.Status != model.DataStatus[par]
+			pred := parMap["status"].pred
+			par := parMap["status"].par
+			stat := model.DataStatus[par]
+			if pred == "eq" {
+				f = func(acc model.User) bool {
+					return acc.Status == stat
 				}
-				return false
+			}
+			if pred == "neq" {
+				f = func(acc model.User) bool {
+					return acc.Status != stat
+				}
 			}
 		case "interests":
-			f = func(acc model.User) bool {
-				return filterInterests(acc, "interests", parMap)
+			par := parMap["interests"].par
+			if par == "" {
+				continue
+			}
+			pred := parMap["interests"].pred
+			pari := strings.Split(par, ",")
+			dat := make([]uint16, len(pari))
+			for i := range pari {
+				dat[i], _ = model.DataInter.Get(pari[i])
+			}
+			switch pred {
+			case "contains":
+				f = func(acc model.User) bool {
+					interests := acc.Interests
+					for _, p := range dat {
+						find := false
+						for _, inter := range interests {
+							if p == inter {
+								find = true
+								break
+							}
+						}
+						if !find {
+							return false
+						}
+					}
+					return true
+				}
+			case "any":
+				f = func(acc model.User) bool {
+					interests := acc.Interests
+					for _, inter := range interests {
+						for _, p := range dat {
+							if p == inter {
+								return true
+							}
+						}
+					}
+					return false
+				}
+			case "neq":
+				f = func(acc model.User) bool {
+					interests := acc.Interests
+					for _, inter := range interests {
+						v, _ := model.DataInter.Get(par)
+						if v != inter {
+							return false
+						}
+					}
+					return true
+				}
 			}
 		case "likes":
 			continue
 		case "premium":
-			f = func(acc model.User) bool {
-				return filterPremium(acc, "premium", parMap)
+			pred := parMap["premium"].pred
+			par := parMap["premium"].par
+			switch pred {
+			case "now":
+				f = func(acc model.User) bool {
+					start := time.Unix(int64(acc.Start), 0).In(model.Loc)
+					finish := time.Unix(int64(acc.Finish), 0).In(model.Loc)
+					now := time.Unix(model.Now, 0).In(model.Loc)
+					return now.After(start) && now.Before(finish)
+				}
+			case "null":
+				if par == "0" {
+					f = func(acc model.User) bool {
+						return !(acc.Start == 0 && acc.Finish == 0)
+					}
+				}
+				if par == "1" {
+					f = func(acc model.User) bool {
+						return (acc.Start == 0 && acc.Finish == 0)
+					}
+				}
+			default:
+				continue
 			}
 		case "birth":
 			f = func(acc model.User) bool {
@@ -367,56 +421,6 @@ func filterAcc(account model.User, pname string, parMap map[string]sparam) bool 
 		return strings.Compare(accP, par) < 0
 	case "starts":
 		return strings.HasPrefix(accP, par)
-	}
-	return true
-}
-
-/*filterInterests - фильтр интересов*/
-func filterInterests(account model.User, pname string, parMap map[string]sparam) bool {
-	par := parMap[pname].par
-	if par == "" {
-		return true
-	}
-	interests := account.Interests
-	pred := parMap[pname].pred
-	pari := strings.Split(par, ",")
-	dat := make([]uint16, len(pari))
-	for i := range pari {
-		dat[i], _ = model.DataInter.Get(pari[i])
-	}
-	switch pred {
-	case "contains":
-		for _, p := range dat {
-			find := false
-			for _, inter := range interests {
-				if p == inter {
-					find = true
-					break
-				}
-			}
-			if !find {
-				return false
-			}
-		}
-		return true
-	case "any":
-
-		for _, inter := range interests {
-			for _, p := range dat {
-				if p == inter {
-					return true
-				}
-			}
-		}
-		return false
-	case "neq":
-		for _, inter := range interests {
-			v, _ := model.DataInter.Get(par)
-			if v != inter {
-				return false
-			}
-		}
-		return true
 	}
 	return true
 }

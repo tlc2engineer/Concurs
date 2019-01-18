@@ -225,6 +225,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.SetFname(fname)
 		case "sname":
 			paccount.SetSname(sname)
+			model.UpdSname(paccount.ID, paccount.SName, sname)
 		case "sex":
 			bsex := false
 			if sex == "m" {
