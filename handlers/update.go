@@ -217,6 +217,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			oldMail := paccount.Email
 			paccount.Email = email
 			model.UpdateEmail(email, oldMail)
+			model.UpdateDomainInd(paccount.ID, oldMail, email)
 		case "phone":
 			old := paccount.Phone
 			oldCode := model.GetCode(old)
@@ -228,8 +229,9 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			model.UpdFname(paccount.ID, paccount.FName, fname)
 			paccount.SetFname(fname)
 		case "sname":
+			oldName := paccount.SName
 			paccount.SetSname(sname)
-			model.UpdSname(paccount.ID, paccount.SName, sname)
+			model.UpdSname(paccount.ID, oldName, sname)
 		case "sex":
 			bsex := false
 			if sex == "m" {

@@ -97,12 +97,94 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	noneFlag := false
 	for k := range parMap {
 		switch k {
-		case "email", "sname", "fname", "phone":
-			f = func(par string) func(acc model.User) bool {
-				return func(acc model.User) bool {
-					return filterAcc(acc, par, parMap)
+		case "sname":
+			par := parMap["sname"].par
+			if par == "" {
+				continue
+			}
+			pred := parMap["sname"].pred
+			switch pred {
+			case "null":
+				if par == "0" {
+					f = func(acc model.User) bool {
+						return acc.SName != 0
+					}
 				}
-			}(k)
+				if par == "1" {
+					f = func(acc model.User) bool {
+						return acc.SName == 0
+					}
+				}
+			default:
+				continue
+			}
+			// f = func(par string) func(acc model.User) bool {
+			// 	return func(acc model.User) bool {
+			// 		return filterAcc(acc, par, parMap)
+			// 	}
+			// }(k)
+
+		case "fname":
+			par := parMap["fname"].par
+			if par == "" {
+				continue
+			}
+			pred := parMap["fname"].pred
+			switch pred {
+			case "null":
+				if par == "0" {
+					f = func(acc model.User) bool {
+						return acc.FName != 0
+					}
+				}
+				if par == "1" {
+					f = func(acc model.User) bool {
+						return acc.FName == 0
+					}
+				}
+			default:
+				continue
+			}
+		case "phone":
+			par := parMap["phone"].par
+			if par == "" {
+				continue
+			}
+			pred := parMap["phone"].pred
+			switch pred {
+			case "null":
+				if par == "1" {
+					f = func(acc model.User) bool {
+						return acc.Phone == ""
+					}
+				}
+				if par == "0" {
+					f = func(acc model.User) bool {
+						return acc.Phone != ""
+					}
+				}
+			default:
+				continue
+			}
+		case "email":
+			mail := parMap["email"].par
+			// если параметр не контролируется
+			if mail == "" {
+				continue
+			}
+			pred := parMap["email"].pred
+			switch pred {
+			case "lt":
+				f = func(acc model.User) bool {
+					return strings.Compare(acc.Email, mail) < 0
+				}
+			case "gt":
+				f = func(acc model.User) bool {
+					return strings.Compare(acc.Email, mail) > 0
+				}
+			default:
+				continue
+			}
 		case "city":
 			pred := parMap["city"].pred
 			par := parMap["city"].par
@@ -238,12 +320,44 @@ func Filter(ctx *fasthttp.RequestCtx) {
 				continue
 			}
 		case "birth":
-			f = func(acc model.User) bool {
-				return filterDate(acc, "birth", parMap)
+			par := parMap["birth"].par
+			if par == "" {
+				continue
+			}
+			pred := parMap["birth"].pred
+			switch pred {
+			case "lt":
+				num, _ := strconv.ParseInt(par, 10, 0)
+				f = func(acc model.User) bool {
+					return int64(acc.Birth) < num
+				}
+			case "gt":
+				num, _ := strconv.ParseInt(par, 10, 0)
+				f = func(acc model.User) bool {
+					return int64(acc.Birth) > num
+				}
+			default:
+				continue
 			}
 		case "joined":
-			f = func(acc model.User) bool {
-				return filterDate(acc, "joined", parMap)
+			par := parMap["joined"].par
+			if par == "" {
+				continue
+			}
+			pred := parMap["joined"].pred
+			switch pred {
+			case "lt":
+				num, _ := strconv.ParseInt(par, 10, 0)
+				f = func(acc model.User) bool {
+					return int64(acc.Joined) < num
+				}
+			case "gt":
+				num, _ := strconv.ParseInt(par, 10, 0)
+				f = func(acc model.User) bool {
+					return int64(acc.Joined) > num
+				}
+			default:
+				continue
 			}
 		}
 		filtFunc = append(filtFunc, f)
@@ -452,7 +566,7 @@ func filterLikes(account model.User, pname string, parMap map[string]sparam) boo
 	return true
 }
 
-/*filterDate - фильтр по дате*/
+/*filterDate - фильтр по дате
 func filterDate(account model.User, pname string, parMap map[string]sparam) bool {
 	par := parMap[pname].par
 	if par == "" {
@@ -489,9 +603,9 @@ func filterDate(account model.User, pname string, parMap map[string]sparam) bool
 		return year == int64(date.Year())
 	}
 	return true
-}
+}*/
 
-/*filterPremium - фильтр по премиум*/
+/*filterPremium - фильтр по премиум
 func filterPremium(account model.User, pname string, parMap map[string]sparam) bool {
 	pred := parMap[pname].pred
 	par := parMap[pname].par
@@ -511,7 +625,7 @@ func filterPremium(account model.User, pname string, parMap map[string]sparam) b
 		}
 	}
 	return true
-}
+}*/
 
 /*createFilterOutput - вывод фильтра*/
 func createFilterOutput(accounts []model.User, fields []string) []byte {
