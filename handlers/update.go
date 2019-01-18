@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/valyala/fasthttp"
 )
@@ -218,8 +219,11 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			model.UpdateEmail(email, oldMail)
 		case "phone":
 			old := paccount.Phone
+			oldCode := model.GetCode(old)
+			newCode := model.GetCode(phone)
 			paccount.Phone = phone
 			model.UpdatePhone(phone, old)
+			model.UpdCode(paccount.ID, oldCode, newCode)
 		case "fname":
 			model.UpdFname(paccount.ID, paccount.FName, fname)
 			paccount.SetFname(fname)
@@ -233,7 +237,13 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			}
 			paccount.Sex = bsex
 		case "birth":
+			oldBirth := paccount.Birth
+			oldDate := time.Unix(int64(oldBirth), 0).In(loc)
+			oldYear := oldDate.Year()
+			newDate := time.Unix(int64(birth), 0).In(loc)
+			newYear := newDate.Year()
 			paccount.Birth = uint32(birth)
+			model.UpdateBYear(uint32(paccount.ID), uint32(oldYear), uint32(newYear))
 		case "country":
 			model.UpdICountry(paccount.ID, paccount.Country, country) // обновить индекс
 			paccount.Country = model.DataCountry.GetOrAdd(country)
@@ -241,7 +251,13 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			model.UpdICity(paccount.ID, paccount.City, city) // обновить индекс
 			paccount.City = model.DataCity.GetOrAdd(city)
 		case "joined":
+			oldBirth := paccount.Joined
+			oldDate := time.Unix(int64(oldBirth), 0).In(loc)
+			oldYear := oldDate.Year()
+			newDate := time.Unix(int64(joined), 0).In(loc)
+			newYear := newDate.Year()
 			paccount.Joined = uint32(joined)
+			model.UpdateJYear(uint32(paccount.ID), uint32(oldYear), uint32(newYear))
 		case "status":
 			paccount.Status = model.DataStatus[status]
 		case "interests":

@@ -91,9 +91,6 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	//---------------------------------------------------
-	//accounts := model.GetAccounts()
-	// ответ
 	filtFunc := make([]func(model.User) bool, 0) // список функций фильтрации
 	var f func(model.User) bool                  // промежуточная переменная
 	// установка фильтров
@@ -173,39 +170,42 @@ func Filter(ctx *fasthttp.RequestCtx) {
 			}
 			switch pred {
 			case "contains":
-				f = func(acc model.User) bool {
-					interests := acc.Interests
-					for _, p := range dat {
-						find := false
-						for _, inter := range interests {
-							if p == inter {
-								find = true
-								break
-							}
-						}
-						if !find {
-							return false
-						}
-					}
-					return true
-				}
-			case "any":
-				f = func(acc model.User) bool {
-					interests := acc.Interests
-					for _, inter := range interests {
+				continue
+				/*
+					f = func(acc model.User) bool {
+						interests := acc.Interests
 						for _, p := range dat {
-							if p == inter {
-								return true
+							find := false
+							for _, inter := range interests {
+								if p == inter {
+									find = true
+									break
+								}
+							}
+							if !find {
+								return false
 							}
 						}
-					}
-					return false
-				}
+						return true
+					}*/
+			case "any":
+				continue /*
+					f = func(acc model.User) bool {
+						interests := acc.Interests
+						for _, inter := range interests {
+							for _, p := range dat {
+								if p == inter {
+									return true
+								}
+							}
+						}
+						return false
+					}*/
 			case "neq":
+				v, _ := model.DataInter.Get(par)
 				f = func(acc model.User) bool {
 					interests := acc.Interests
 					for _, inter := range interests {
-						v, _ := model.DataInter.Get(par)
 						if v != inter {
 							return false
 						}
@@ -221,10 +221,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 			switch pred {
 			case "now":
 				f = func(acc model.User) bool {
-					start := time.Unix(int64(acc.Start), 0).In(model.Loc)
-					finish := time.Unix(int64(acc.Finish), 0).In(model.Loc)
-					now := time.Unix(model.Now, 0).In(model.Loc)
-					return now.After(start) && now.Before(finish)
+					return acc.Start < uint32(model.Now) && acc.Finish > uint32(model.Now) //now.After(start) && now.Before(finish)
 				}
 			case "null":
 				if par == "0" {
