@@ -29,6 +29,7 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 var uBuff = make([]model.User, 0, 1000)
 var bTs = make([]byte, 10000)
 var buff = bytes.NewBuffer(bTs)
+var out = make([]map[string]interface{}, 0, 1000)
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
@@ -633,7 +634,7 @@ func filterPremium(account model.User, pname string, parMap map[string]sparam) b
 /*createFilterOutput - вывод фильтра*/
 func createFilterOutput(accounts []model.User, fields []string) []byte {
 	resp := make(map[string][]map[string]interface{})
-	out := make([]map[string]interface{}, 0, len(accounts))
+	out = out[:0]
 	for _, account := range accounts {
 		dat := make(map[string]interface{})
 		dat["email"] = account.Email
@@ -691,7 +692,6 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 	buff.Reset()
 	enc := json.NewEncoder(buff)
 	enc.Encode(resp)
-	//bts, _ := json.Marshal(resp)
 	return bTs[:buff.Len()]
 }
 
