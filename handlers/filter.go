@@ -3,7 +3,6 @@ package handlers
 import (
 	"Concurs/model"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -397,7 +396,9 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	for k := range parMap {
 		par := parMap[k]
 		if !(par.pred == "null" && par.par == "1") { //_null=1
-			fields = append(fields, k)
+			if k != "id" && k != "email" && k != "interests" && k != "likes" {
+				fields = append(fields, k)
+			}
 		}
 	}
 	if len(resp) > limit {
@@ -633,65 +634,109 @@ func filterPremium(account model.User, pname string, parMap map[string]sparam) b
 
 /*createFilterOutput - вывод фильтра*/
 func createFilterOutput(accounts []model.User, fields []string) []byte {
-	resp := make(map[string][]map[string]interface{})
-	out = out[:0]
-	for _, account := range accounts {
-		dat := make(map[string]interface{})
-		dat["email"] = account.Email
-		dat["id"] = account.ID
+	bg := "{\"accounts\":["
+	end := "]}"
+	// resp := make(map[string][]map[string]interface{})
+	// out = out[:0]
+	// tmp := make([]byte, 1000)
+	// tmpBuff := bytes.NewBuffer(tmp)
+	//dat := make(map[string]interface{})
+	buff.Reset()
+	buff.WriteString(bg)
+	//enc := json.NewEncoder(tmpBuff)
+	//dat := make(map[string]interface{})
+	for i, account := range accounts {
+		buff.WriteString("{")
+		//dat["email"] = account.Email
+		buff.WriteString(fmt.Sprintf("\"email\":\"%s\",\"id\":%d", account.Email, account.ID))
+		if len(fields) > 0 {
+			buff.WriteString(",")
+		}
+		// dat["id"] = account.ID
+		// buff.WriteString(fmt.Sprintf("\"email\":\"%s\"", account.Email))
 		//dat["sname"] = account.GetSname()
 		if fields != nil {
-			for _, field := range fields {
+			for m, field := range fields {
 				switch field {
 				case "sex":
 					osex := "f"
 					if account.Sex {
 						osex = "m"
 					}
-					dat["sex"] = osex
+					buff.WriteString(fmt.Sprintf("\"sex\":\"%s\"", osex))
+					//dat["sex"] = osex
 				case "fname":
-					dat["fname"] = account.GetFname()
+					buff.WriteString(fmt.Sprintf("\"fname\":\"%s\"", account.GetFname()))
+					//dat["fname"] = account.GetFname()
 				case "sname":
-					dat["sname"] = account.GetSname()
+					buff.WriteString(fmt.Sprintf("\"sname\":\"%s\"", account.GetSname()))
+					//dat["sname"] = account.GetSname()
 				case "phone":
-					dat["phone"] = account.Phone
+					buff.WriteString(fmt.Sprintf("\"phone\":\"%s\"", account.Phone))
+					//dat["phone"] = account.Phone
 				case "city":
-					for k, v := range model.DataCity.GetMap() {
-						if v == account.City {
-							dat["city"] = k
-						}
-					}
+					city := model.DataCity.GetRev(account.City)
+					buff.WriteString(fmt.Sprintf("\"city\":\"%s\"", city))
+					// for k, v := range model.DataCity.GetMap() {
+					// 	if v == account.City {
+					// 		dat["city"] = k
+					// 	}
+					// }
 				case "country":
-					for k, v := range model.DataCountry.GetMap() {
-						if v == account.Country {
-							dat["country"] = k
-						}
-					}
+					country := model.DataCountry.GetRev(account.Country)
+					buff.WriteString(fmt.Sprintf("\"country\":\"%s\"", country))
+					// for k, v := range model.DataCountry.GetMap() {
+					// 	if v == account.Country {
+					// 		dat["country"] = k
+					// 	}
+					// }
 				case "birth":
-					dat["birth"] = account.Birth
+					buff.WriteString(fmt.Sprintf("\"birth\":%d", account.Birth))
+					//dat["birth"] = account.Birth
 				case "joined":
-					dat["joined"] = account.Joined
+					buff.WriteString(fmt.Sprintf("\"joined\":%d", account.Joined))
+					//dat["joined"] = account.Joined
 				case "status":
+					var status string
 					for k, v := range model.DataStatus {
 						if v == account.Status {
-							dat["status"] = k
+							status = k
 						}
 					}
+					buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", status))
 				case "premium":
-					prem := model.Premium{
-						Start:  int64(account.Start),
-						Finish: int64(account.Finish),
-					}
-					dat["premium"] = prem
+					buff.WriteString(fmt.Sprintf("\"premium\":{\"start\":%d,\"finish\":%d}", account.Start, account.Finish))
+					// prem := model.Premium{
+					// 	Start:  int64(account.Start),
+					// 	Finish: int64(account.Finish),
+					// }
+					// dat["premium"] = prem
+				}
+				if m != len(fields)-1 {
+					buff.WriteString(",")
 				}
 			}
 		}
-		out = append(out, dat)
+		buff.WriteString("}")
+		// tmpBuff.Reset()
+		// enc.Encode(dat)
+		// buff.Write(tmp[:tmpBuff.Len()])
+		if i != (len(accounts) - 1) {
+			buff.WriteString(",")
+		}
+		//out = append(out, dat)
 	}
-	resp["accounts"] = out
-	buff.Reset()
-	enc := json.NewEncoder(buff)
-	enc.Encode(resp)
+	buff.WriteString(end)
+	//fmt.Println(buff.Len())
+	// valid := json.Valid(bTs[:buff.Len()])
+	// if !valid {
+	// 	fmt.Println("Not valid")
+	// }
+	// //return make([]byte, 0)
+	// resp["accounts"] = out
+	// buff.Reset()
+	// enc := json.NewEncoder(buff)
+	// enc.Encode(resp)
 	return bTs[:buff.Len()]
 }
 
