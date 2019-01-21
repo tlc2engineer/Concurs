@@ -18,8 +18,8 @@ import (
 )
 
 const opt = "options.txt"
-const num = 3
-const base = "./data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
+const num = 130
+const base = "D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
 
 func main() {
 

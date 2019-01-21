@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"Concurs/model"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -26,6 +27,8 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 	"premium": {"now", "null"}, "likes": {"contains"}}
 
 var uBuff = make([]model.User, 0, 1000)
+var bTs = make([]byte, 10000)
+var buff = bytes.NewBuffer(bTs)
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
@@ -685,8 +688,11 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 		out = append(out, dat)
 	}
 	resp["accounts"] = out
-	bts, _ := json.Marshal(resp)
-	return bts
+	buff.Reset()
+	enc := json.NewEncoder(buff)
+	enc.Encode(resp)
+	//bts, _ := json.Marshal(resp)
+	return bTs[:buff.Len()]
 }
 
 func toMess(m map[string]sparam) []model.Mess {
