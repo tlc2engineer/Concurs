@@ -20,6 +20,7 @@ var keysLegal = []string{"city", "country", "sex", "interests", "status"}
 var params = map[string]param{"order": param{tp: it}, "limit": param{tp: it}, "likes": param{tp: it}, "birth": param{tp: it}, "sex": param{tp: st}, "joined": param{tp: it}, "status": param{tp: st},
 	"interests": param{tp: st}, "city": param{tp: st}, "country": param{tp: st}}
 var loc, _ = time.LoadLocation("Europe/London")
+var resMap = make(map[uint64]int, 10000) // карта группировки
 
 type param struct {
 	tp   int
@@ -108,14 +109,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 
 		}
 	}
-	// группировка
-	resMap := make(map[uint64]int) // карта группировки
-	fkey := createFKey(keys)       // преобразование в ключ поиска
-
-	// Фильтрация
-	//filtered := make([]model.User, 0)
-	accounts := model.GroupAgg(toMessG(actParams))
-	//accounts := model.GetAccounts()
+	// order и limit
 	limit := -1
 	limP, ok := actParams["limit"]
 	if ok {
@@ -126,97 +120,79 @@ func Group(ctx *fasthttp.RequestCtx) {
 	if ok {
 		order = int(orderP.ival)
 	}
+	// группировка
+	// удаление значений
 
-	// основной цикл
-	for _, account := range accounts {
-		cityP, ok := actParams["city"]
-		if ok {
-			v, _ := model.DataCity.Get(cityP.sval)
-			if account.City != v {
-				continue
+	fkey := createFKey(keys) // преобразование в ключ поиска
+	for k := range resMap {
+		delete(resMap, k)
+	}
+	// Фильтрация
+	// Список функций фильтрации
+	ff := make([]func(model.User) bool, 0)
+	if sexP, ok := actParams["sex"]; ok {
+		if sexP.sval == "m" {
+			f := func(acc model.User) bool {
+				return acc.Sex
 			}
+			ff = append(ff, f)
 		}
-		countryP, ok := actParams["country"]
-		if ok {
-			v, _ := model.DataCountry.Get(countryP.sval)
-			if account.Country != v {
-				continue
+		if sexP.sval == "f" {
+			f := func(acc model.User) bool {
+				return !acc.Sex
 			}
+			ff = append(ff, f)
 		}
-
-		// if likesP, ok := actParams["likes"]; ok {
-		// 	likeID := likesP.ival
-		// 	found := false
-		// 	id := account.ID
-		// 	for _, like := range model.UnPackLSlice(model.GetLikes(id)) {
-		// 		if like.ID == likeID {
-		// 			found = true
-		// 			break
-		// 		}
-		// 	}
-		// 	if !found {
-		// 		continue
-		// 	}
+	}
+	if statusP, ok := actParams["status"]; ok {
+		status := model.DataStatus[statusP.sval]
+		f := func(acc model.User) bool {
+			return acc.Status == status
+		}
+		ff = append(ff, f)
+	}
+	// использование индексов
+	fInd := model.GroupAgg(toMessG(actParams), resMap, ff, fkey)
+	//--------------------------------------
+	if !fInd {
+		// ckeys := map[string]bool{"city": false, "sex": false, "status": false}
+		// find:=false
+		// for _, key := range keys {
+		// 	_, ok := ckeys[key]
 		// }
-		if interestP, ok := actParams["interests"]; ok {
-			interestV := interestP.sval
-			found := false
-			for _, interest := range account.Interests {
-				v, _ := model.DataInter.Get(interestV)
-				if interest == v {
-					found = true
-					break
+		// основной цикл
+		accounts := model.GetAccounts()
+	m:
+		for _, account := range accounts {
+			// все фильтры
+			for _, f := range ff {
+				if !f(account) {
+					continue m
 				}
 			}
-			if !found {
-				continue
+			// группировка
+			newSres := fkey(account)
+			for _, r := range newSres {
+				count, ok := resMap[r]
+				if ok {
+					count++
+					resMap[r] = count
+				} else {
+					resMap[r] = 1
+				}
 			}
 		}
-		if sexP, ok := actParams["sex"]; ok {
-			if account.Sex == false && sexP.sval == "m" || account.Sex == true && sexP.sval == "f" {
-				continue
-			}
-
-		}
-		if statusP, ok := actParams["status"]; ok {
-			if account.Status != model.DataStatus[statusP.sval] {
-				continue
-			}
-		}
-		if joinedP, ok := actParams["joined"]; ok {
-			year := int(joinedP.ival)
-			joinDate := time.Unix(int64(account.Joined), 0).In(loc)
-			if joinDate.Year() != year {
-				continue
-			}
-		}
-		if birthP, ok := actParams["birth"]; ok {
-			year := int(birthP.ival)
-			birthDate := time.Unix(int64(account.Birth), 0).In(loc)
-			if birthDate.Year() != year {
-				continue
-			}
-		}
-		// группировка
-		newSres := fkey(account)
-		for _, r := range newSres {
-			count, ok := resMap[r]
-			if ok {
-				count++
-				resMap[r] = count
-			} else {
-				resMap[r] = 1
-			}
-		}
-		//filtered = append(filtered, account)
 	}
+	// if true {
+	// 	ctx.SetStatusCode(400)
+	// 	return
+	// }
 	//преобразование карты в срез результатов
 	results := make([]res, 0, len(resMap)) //результаты группировки
 	for k, v := range resMap {
 		result := res{unpackKey(k, keys), v}
 		results = append(results, result)
 	}
-	//fmt.Println(len(resMap), len(results))
 	// Сортировка
 	if order == 1 {
 		sort.Slice(results, func(i, j int) bool {
