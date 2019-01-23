@@ -571,67 +571,6 @@ func filterLikes(account model.User, pname string, parMap map[string]sparam) boo
 	return true
 }
 
-/*filterDate - фильтр по дате
-func filterDate(account model.User, pname string, parMap map[string]sparam) bool {
-	par := parMap[pname].par
-	if par == "" {
-		return true
-	}
-	pred := parMap[pname].pred
-	var date time.Time
-	if pname == "birth" {
-		date = time.Unix(int64(account.Birth), 0).In(loc)
-	}
-	if pname == "joined" {
-		date = time.Unix(int64(account.Joined), 0).In(loc)
-	}
-
-	if len(par) == 1 && par == "" {
-		return true
-	}
-	switch pred {
-	case "lt":
-		num, _ := strconv.ParseInt(par, 10, 0)
-		if pname == "birth" {
-			return int64(account.Birth) < num
-		}
-		return int64(account.Joined) < num
-	case "gt":
-		num, _ := strconv.ParseInt(par, 10, 0)
-		if pname == "birth" {
-			return int64(account.Birth) > num
-		}
-		return int64(account.Joined) > num
-	case "year":
-
-		year, _ := strconv.ParseInt(par, 10, 0)
-		return year == int64(date.Year())
-	}
-	return true
-}*/
-
-/*filterPremium - фильтр по премиум
-func filterPremium(account model.User, pname string, parMap map[string]sparam) bool {
-	pred := parMap[pname].pred
-	par := parMap[pname].par
-	switch pred {
-	case "now":
-		start := time.Unix(int64(account.Start), 0).In(model.Loc)
-		finish := time.Unix(int64(account.Finish), 0).In(model.Loc)
-		now := time.Unix(model.Now, 0).In(model.Loc)
-		//acc.mutex.Unlock()
-		return now.After(start) && now.Before(finish)
-	case "null":
-		if par == "0" {
-			return !(account.Start == 0 && account.Finish == 0)
-		}
-		if par == "1" {
-			return account.Start == 0 && account.Finish == 0
-		}
-	}
-	return true
-}*/
-
 /*createFilterOutput - вывод фильтра*/
 func createFilterOutput(accounts []model.User, fields []string) []byte {
 	bg := "{\"accounts\":["
@@ -727,16 +666,6 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 		//out = append(out, dat)
 	}
 	buff.WriteString(end)
-	//fmt.Println(buff.Len())
-	// valid := json.Valid(bTs[:buff.Len()])
-	// if !valid {
-	// 	fmt.Println("Not valid")
-	// }
-	// //return make([]byte, 0)
-	// resp["accounts"] = out
-	// buff.Reset()
-	// enc := json.NewEncoder(buff)
-	// enc.Encode(resp)
 	return bTs[:buff.Len()]
 }
 

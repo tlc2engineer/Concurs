@@ -72,10 +72,11 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(404)
 		return
 	}
-	// фильтрация
 	kcountry, _ := model.DataCountry.Get(country)
 	kcity, _ := model.DataCity.Get(city)
-	filtered := filterRecommend(account, kcountry, kcity)
+	filtered := model.GetFPointers(uint32(id), kcountry, kcity, limit)
+
+	// фильтрация
 	sort.Slice(filtered, func(i, j int) bool {
 		f := filtered[i]
 		s := filtered[j]
@@ -106,47 +107,13 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	if limit > 0 && len(filtered) > 0 && len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
-	// fmt.Println("Accouunt", account.Interests, account.ID, time.Unix(int64(account.Birth), 0))
-	// for _, f := range filtered {
-	// 	fmt.Println(model.GetSPVal("city", f.City), f.Interests, f.ID, f.IsPremium(), f.GetCommInt(account),
-	// 		int64(account.Birth)-int64(f.Birth), time.Unix(int64(f.Birth), 0), account.Birth, f.Birth)
-	// }
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
 	ctx.Write(recommendOutput(filtered))
 }
 
-func filterRecommend(account model.User, country uint16, city uint16) []model.User {
-	accounts := model.GetAccounts()
-	filtered := make([]model.User, 0)
-	sex := account.Sex
-	rec := !sex // противоположный пол
-	for _, acc := range accounts {
-		if acc.Sex != rec {
-			continue
-		}
-		if country != 0 {
-			if acc.Country != country {
-				continue
-			}
-		}
-		if city != 0 {
-			if acc.City != city {
-				continue
-			}
-		}
-		if acc.GetCommInt(account) == 0 {
-			continue
-		}
-
-		filtered = append(filtered, acc)
-	}
-	return filtered
-
-}
-
-func recommendOutput(accounts []model.User) []byte {
+func recommendOutput(accounts []*model.User) []byte {
 	resp := make(map[string][]map[string]interface{})
 	out := make([]map[string]interface{}, 0, len(accounts))
 	for _, account := range accounts {
