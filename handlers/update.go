@@ -210,6 +210,8 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
+	// удаление старого индекса
+	model.DeleteGIndex(*paccount)
 	// Присвоение значений
 	for k := range vmap {
 		switch k {
@@ -247,6 +249,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Birth = uint32(birth)
 			model.UpdateBYear(uint32(paccount.ID), uint32(oldYear), uint32(newYear))
 		case "country":
+
 			model.UpdICountry(paccount.ID, paccount.Country, country) // обновить индекс
 			paccount.Country = model.DataCountry.GetOrAdd(country)
 		case "city":
@@ -301,6 +304,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 
 		}
 	}
+	model.AddGIndex(*paccount)
 	ctx.SetStatusCode(202) // все в норме
 	ctx.Write([]byte(""))
 	return

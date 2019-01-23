@@ -3,6 +3,8 @@ package main
 import (
 	"Concurs/handlers"
 	"Concurs/model"
+	"runtime"
+	"time"
 
 	"bufio"
 	"encoding/json"
@@ -18,8 +20,8 @@ import (
 )
 
 const opt = "options.txt"
-const num = 3
-const base = "./data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
+const num = 130
+const base = "D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
 
 func main() {
 
@@ -72,6 +74,7 @@ func main() {
 	}
 	*/
 	model.SetUsers()
+	go clear()
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
@@ -157,4 +160,38 @@ func requestPost(ctx *fasthttp.RequestCtx) {
 	}
 	ctx.SetStatusCode(404)
 	return
+}
+
+//-----Очистка---------------
+
+func clear() {
+	var on bool
+	ms := &runtime.MemStats{}
+	tick := time.Tick(time.Millisecond * 200)
+	for {
+		select {
+		case <-tick:
+			runtime.ReadMemStats(ms)
+			sys := ms.Sys
+			if sys > 1800000000 && !on {
+				//fmt.Println("------GC Start-----")
+				on = true
+				go func(pon *bool) {
+					select {
+					case <-time.After(time.Millisecond * 2000):
+						*pon = false
+					}
+				}(&on)
+				runtime.GC()
+			}
+			// all := ms.HeapAlloc
+			// fmt.Println("h all", all)
+			// fmt.Println("idle", ms.HeapIdle)
+			// fmt.Println("inuse", ms.HeapInuse)
+			// fmt.Println(ms.Alloc)
+			// fmt.Println(ms.Frees)
+			// fmt.Println(ms.TotalAlloc)
+			// fmt.Println(ms.Sys)
+		}
+	}
 }
