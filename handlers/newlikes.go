@@ -67,6 +67,9 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			if tid == uint32(id2) { // уже есть лайк
 				cnt := data[i*8+7]
 				cnt++
+				if cnt > 255 {
+					cnt = 255
+				}
 				data[i*8+7] = cnt
 				found = true
 				break

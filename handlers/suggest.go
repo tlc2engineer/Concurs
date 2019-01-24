@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"sort"
 	"strconv"
-	"time"
 
 	"github.com/valyala/fasthttp"
 )
 
 /*Suggest - предпочитаемые id*/
 func Suggest(ctx *fasthttp.RequestCtx, id int) {
-	now := time.Now()
 	city := ""
 	country := ""
 	var limit = -1
@@ -87,14 +85,10 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
 	ctx.Write(suggestOutput(sugg))
-	dur := time.Since(now)
-	if dur.Nanoseconds() > int64(1000000*10) {
-		//fmt.Println(dur, "Time5", string(ctx.URI().QueryString()))
-	}
 }
 
 /*suggestOutput - вывод данных*/
-func suggestOutput(accounts []model.User) []byte {
+func suggestOutput(accounts []*model.User) []byte {
 	resp := make(map[string][]map[string]interface{})
 	out := make([]map[string]interface{}, 0, len(accounts))
 	for _, account := range accounts {
@@ -142,6 +136,9 @@ func filterSuggest(account model.User, country uint16, city uint16) []*model.Use
 	sex := account.Sex
 	rec := sex
 	for i := range wh {
+		if i == account.ID {
+			continue
+		}
 		acc := model.MainMap[i]
 		if acc.Sex != sex {
 			continue
@@ -160,6 +157,7 @@ func filterSuggest(account model.User, country uint16, city uint16) []*model.Use
 			}
 		}
 		s := account.Suggest(acc)
+
 		if s == 0.0 {
 			continue
 		}
@@ -167,8 +165,12 @@ func filterSuggest(account model.User, country uint16, city uint16) []*model.Use
 	}
 	//fmt.Println("sudd", time.Since(t2))
 	sort.Slice(tmp, func(i, j int) bool {
+		if tmp[i].s == tmp[j].s {
+			return tmp[i].user.ID < tmp[j].user.ID
+		}
 		return tmp[i].s > tmp[j].s
 	})
+	//fmt.Println(tmp[0].s, tmp[0].user.ID, tmp[1].s, tmp[1].user.ID)
 	filtered := make([]*model.User, 0, len(tmp))
 	for i := range tmp {
 		filtered = append(filtered, tmp[i].user)
@@ -177,21 +179,26 @@ func filterSuggest(account model.User, country uint16, city uint16) []*model.Use
 }
 
 /*getSuggestAcc - аккаунты которые любят пользователи с близкими симпатиями*/
-func getSuggestAcc(sugg []*model.User, exclID map[uint32]bool, limit int, city uint16, country uint16) []model.User {
-	ret := make([]model.User, 0) // возвращаемое значение
+func getSuggestAcc(sugg []*model.User, exclID map[uint32]bool, limit int, city uint16, country uint16) []*model.User {
+	filtMap := make(map[uint32]bool)
+	ret := make([]*model.User, 0) // возвращаемое значение
 	for i := range sugg {
-		data := model.GetLikes(sugg[i].ID)        // id предпочитает данный пользователь
-		tmp := make([]model.User, 0, len(data)/8) // временный срез для id пользователя которые не предпочитает целевой
-		//id = uint32(data[0]) | uint32(data[1])<<8 | uint32(data[2])<<16
-		for i := 0; i < len(data)/8; i++ { // id которые предпочитал пользователь
-
+		//fmt.Println(sugg[i].ID)
+		data := model.GetLikes(sugg[i].ID)         // id предпочитает данный пользователь
+		tmp := make([]*model.User, 0, len(data)/8) // временный срез для id пользователя которые не предпочитает целевой
+		for i := 0; i < len(data)/8; i++ {         // id которые предпочитал пользователь
 			id := uint32(data[i*8]) | uint32(data[i*8+1])<<8 | uint32(data[i*8+2])<<16
 			//	fmt.Println("---", id)
 			_, ok := exclID[uint32(id)] // фильтрация id которые предпочитает целевой пользователь
 			if ok {
 				continue
 			}
-			acc, _ := model.GetAccount(uint32(id))
+			_, ok = filtMap[id]
+			if ok { // уже было
+				continue
+			}
+			filtMap[id] = false
+			acc, _ := model.MainMap[uint32(id)]
 			tmp = append(tmp, acc)
 
 		}

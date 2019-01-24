@@ -22,7 +22,7 @@ import (
 )
 
 const opt = "options.txt"
-const base = "./data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
+const base = "/home/sergey/Загрузки/data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
 const dfname = "data.zip"
 
 func main() {
