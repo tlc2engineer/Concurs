@@ -3,7 +3,6 @@ package handlers
 import (
 	"Concurs/model"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -22,13 +21,13 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 	vmap := make(map[string][]Temp)
 	err := json.Unmarshal(data, &vmap)
 	if err != nil {
-		fmt.Println("Ошибка распаковки")
+		//fmt.Println("Ошибка распаковки")
 		ctx.SetStatusCode(400)
 		return
 	}
 	likesT, ok := vmap["likes"]
 	if !ok {
-		fmt.Println("Ошибка распаковки 1")
+		//fmt.Println("Ошибка распаковки 1")
 		ctx.SetStatusCode(400)
 		return
 	}
@@ -37,14 +36,14 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		id := like.Likee
 		_, err := model.GetAccountPointer(uint32(id))
 		if err != nil {
-			fmt.Println("Нет такого id кто %d", id)
+			//fmt.Println("Нет такого id кто %d", id)
 			ctx.SetStatusCode(400)
 			return
 		}
 		id = like.Liker
 		_, err = model.GetAccountPointer(uint32(id))
 		if err != nil {
-			fmt.Println("Нет такого id кого")
+			//fmt.Println("Нет такого id кого")
 			ctx.SetStatusCode(400)
 			return
 		}

@@ -57,13 +57,13 @@ func Add(ctx *fasthttp.RequestCtx) {
 	acc := new(model.Account)
 	err := json.Unmarshal(data, acc)
 	if err != nil {
-		fmt.Println("Ошибка распаковки", err)
+		//fmt.Println("Ошибка распаковки", err)
 		ctx.SetStatusCode(400)
 		return
 	}
 	err = verifyAccount(acc)
 	if err != nil {
-		fmt.Println("Ошибка верификации", err)
+		//fmt.Println("Ошибка верификации", err)
 		ctx.SetStatusCode(400)
 		return
 	}

@@ -18,13 +18,13 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 	mutex.Lock()
 	defer mutex.Unlock()
 	if !ctx.QueryArgs().Has("query_id") {
-		fmt.Println("Нет query_id")
+		//fmt.Println("Нет query_id")
 		ctx.SetStatusCode(400)
 		return
 	}
 	paccount, err := model.GetAccountPointer(uint32(id))
 	if err != nil {
-		fmt.Println("Нет такого аккаунта")
+		//fmt.Println("Нет такого аккаунта")
 		ctx.SetStatusCode(404)
 		return
 	}
@@ -32,7 +32,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 	dat := make(map[string]interface{})
 	err = json.Unmarshal(data, &dat)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		ctx.SetStatusCode(400)
 		return
 	}
@@ -206,7 +206,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 	}
 	err = verify(dat)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		ctx.SetStatusCode(400)
 		return
 	}
@@ -295,9 +295,6 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			}
 			// Цикл по номерам которые уже не предпочитает
 			for _, tid := range ids {
-				if tid == 31629 {
-					fmt.Println("Вот он!")
-				}
 				data, _ := model.GetWho(tid) // кто лайкал данный id
 				model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
 			}

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -20,7 +21,8 @@ var keysLegal = []string{"city", "country", "sex", "interests", "status"}
 var params = map[string]param{"order": param{tp: it}, "limit": param{tp: it}, "likes": param{tp: it}, "birth": param{tp: it}, "sex": param{tp: st}, "joined": param{tp: it}, "status": param{tp: st},
 	"interests": param{tp: st}, "city": param{tp: st}, "country": param{tp: st}}
 var loc, _ = time.LoadLocation("Europe/London")
-var resMap = make(map[uint64]int, 10000) // карта группировки
+
+//var resMap = make(map[uint64]int, 10000) // карта группировки
 
 type param struct {
 	tp   int
@@ -35,6 +37,12 @@ type groupRes struct {
 	accounts []model.User
 }
 
+var mapBuff = sync.Pool{
+	New: func() interface{} {
+		return make(map[uint64]int, 10000)
+	},
+}
+
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
 	//now := time.Now()
@@ -42,13 +50,13 @@ func Group(ctx *fasthttp.RequestCtx) {
 	//Ключи группировки и их верификация
 	vkey := string(ctx.QueryArgs().Peek("keys"))
 	if vkey == "" {
-		fmt.Println("no keys")
+		//fmt.Println("no keys")
 		ctx.SetStatusCode(400)
 		return
 	}
 	keys := strings.Split(vkey, ",")
 	if len(keys) == 0 {
-		fmt.Println("no keys")
+		//fmt.Println("no keys")
 		ctx.SetStatusCode(400)
 		return
 	}
@@ -62,7 +70,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 			}
 		}
 		if !found {
-			fmt.Println("illegal key " + key)
+			//fmt.Println("illegal key " + key)
 			ctx.SetStatusCode(400)
 			return
 		}
@@ -124,6 +132,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 	// удаление значений
 
 	fkey := createFKey(keys) // преобразование в ключ поиска
+	resMap := mapBuff.Get().(map[uint64]int)
 	for k := range resMap {
 		delete(resMap, k)
 	}
@@ -323,6 +332,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
 	ctx.Write(bts)
+	mapBuff.Put(resMap)
 	//fmt.Println(time.Since(now), string(ctx.URI().QueryString()))
 }
 

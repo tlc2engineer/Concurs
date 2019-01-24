@@ -19,7 +19,7 @@ func SetUsers() {
 	sort.Slice(users, func(i, j int) bool {
 		return users[i].ID < users[j].ID
 	})
-	fmt.Println("Сортировано")
+	//fmt.Println("Сортировано")
 	// //users = make([]User, 0, len(acc)*2) //двойная емкость
 	// users = acc
 
@@ -32,25 +32,7 @@ func SetUsers() {
 			PhoneMap[pacc.Phone] = uint32(pacc.ID)
 		}
 	}
-	fmt.Println("Окончание упаковки")
-	fmt.Println("Мужчин:", globalGr.bman+globalGr.fman+globalGr.cman)
-	fmt.Println("Женщин:", globalGr.cwom+globalGr.bwom+globalGr.fwom)
-	free := 0
-	busy := 0
-	complex := 0
-	for _, v := range cityGMap {
-		busy += int(v.bman) + int(v.bwom)
-		free += int(v.fman) + int(v.fwom)
-		complex += int(v.cman) + int(v.cwom)
-	}
-	fmt.Println("G Status:", globalGr.fman+globalGr.fwom, globalGr.cman+globalGr.cwom, globalGr.bman+globalGr.bwom)
-	fmt.Println("Status:", free, complex, busy)
-	num, ok := DataInter.Get("Путешествия")
-	if !ok {
-		fmt.Println("Путешествия не найдены")
-	} else {
-		fmt.Println(interGMap[uint32(num)])
-	}
+
 }
 
 /*GetAccount - получение значения аккаунта*/
@@ -77,7 +59,7 @@ func AddAcc(user User) {
 		for j := range users[i:] { //изменяем указатели
 			MainMap[users[j].ID] = &users[j]
 		}
-		fmt.Println("---Insert---")
+		//fmt.Println("---Insert---")
 	} else {
 		users = append(users, user)
 		MainMap[user.ID] = &users[len(users)-1] // указатель на последний элемент в карту

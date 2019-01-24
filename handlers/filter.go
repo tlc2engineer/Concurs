@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -25,10 +26,18 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 	"city": {"null", "eq", "any"}, "status": {"eq", "neq"}, "interests": {"any", "contains"}, "birth": {"lt", "gt", "year"},
 	"premium": {"now", "null"}, "likes": {"contains"}}
 
-var uBuff = make([]model.User, 0, 1000)
-var bTs = make([]byte, 10000)
-var buff = bytes.NewBuffer(bTs)
-var out = make([]map[string]interface{}, 0, 1000)
+var bbuf = sync.Pool{
+	New: func() interface{} {
+		var bTs = make([]byte, 10000)
+		return bytes.NewBuffer(bTs)
+	},
+}
+
+var ubuff = sync.Pool{
+	New: func() interface{} {
+		return make([]*model.User, 0, 1000)
+	},
+}
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
@@ -63,7 +72,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 					if len(args) == 2 && args[0] == spar { //два аргумента и первый это параметр
 						sp.pred = args[1]
 					} else {
-						fmt.Println("no arguments")
+						//fmt.Println("no arguments")
 						errFlag = true
 					}
 				} else {
@@ -73,7 +82,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 			}
 		}
 		if !find { // параметр не найден
-			fmt.Println("par not found " + k)
+			//fmt.Println("par not found " + k)
 			errFlag = true
 		}
 
@@ -89,7 +98,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	}
 	err := verifyFilter(parMap)
 	if err != nil {
-		fmt.Println("no verify " + err.Error())
+		//fmt.Println("no verify " + err.Error())
 		ctx.SetStatusCode(400)
 		return
 	}
@@ -369,22 +378,25 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		retZero(ctx)
 		return
 	}
-	var resp []model.User
-	accounts := model.IndexAgg(toMess(parMap), filtFunc, limit)
+	ub := ubuff.Get().([]*model.User)
+	ub = ub[:0]
+	var resp []*model.User
+	accounts := model.IndexAgg(toMess(parMap), filtFunc, limit, ub)
 	if accounts == nil { // общий цикл
-		uBuff = uBuff[:0]
-		resp = uBuff
-		accounts = model.GetAccounts()
-		ln := len(accounts)
+		// var uBuff = make([]*model.User, 0, 1000)
+		// uBuff = uBuff[:0]
+		resp = ub
+		users := model.GetAccounts()
+		ln := len(users)
 	m1:
 		for i := ln - 1; i >= 0; i-- {
 
 			for _, f := range filtFunc {
-				if !f(accounts[i]) {
+				if !f(users[i]) {
 					continue m1
 				}
 			}
-			resp = append(resp, accounts[i])
+			resp = append(resp, &users[i])
 			if len(resp) >= limit { // все
 				break
 			}
@@ -407,7 +419,10 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
-	ctx.Write((createFilterOutput(resp, fields)))
+	buff := bbuf.Get().(*bytes.Buffer)
+	ctx.Write(createFilterOutput(resp, fields, buff))
+	bbuf.Put(buff)
+	ubuff.Put(ub)
 }
 
 /*verifyFilter - проверка строки запроса*/
@@ -423,7 +438,7 @@ func verifyFilter(params map[string]sparam) error {
 			}
 		}
 		if !find {
-			fmt.Println("predict not found " + pred)
+			//fmt.Println("predict not found " + pred)
 			return fmt.Errorf("Predict not found in predict list")
 		}
 		legPredict := legalPred[k]
@@ -434,7 +449,7 @@ func verifyFilter(params map[string]sparam) error {
 			}
 		}
 		if !find {
-			fmt.Println("predict not found in legal list " + pred)
+			//fmt.Println("predict not found in legal list " + pred)
 			return fmt.Errorf("Predict not found in legal predict list")
 		}
 		switch k {
@@ -572,28 +587,17 @@ func filterLikes(account model.User, pname string, parMap map[string]sparam) boo
 }
 
 /*createFilterOutput - вывод фильтра*/
-func createFilterOutput(accounts []model.User, fields []string) []byte {
+func createFilterOutput(accounts []*model.User, fields []string, buff *bytes.Buffer) []byte {
 	bg := "{\"accounts\":["
 	end := "]}"
-	// resp := make(map[string][]map[string]interface{})
-	// out = out[:0]
-	// tmp := make([]byte, 1000)
-	// tmpBuff := bytes.NewBuffer(tmp)
-	//dat := make(map[string]interface{})
 	buff.Reset()
 	buff.WriteString(bg)
-	//enc := json.NewEncoder(tmpBuff)
-	//dat := make(map[string]interface{})
 	for i, account := range accounts {
 		buff.WriteString("{")
-		//dat["email"] = account.Email
 		buff.WriteString(fmt.Sprintf("\"email\":\"%s\",\"id\":%d", account.Email, account.ID))
 		if len(fields) > 0 {
 			buff.WriteString(",")
 		}
-		// dat["id"] = account.ID
-		// buff.WriteString(fmt.Sprintf("\"email\":\"%s\"", account.Email))
-		//dat["sname"] = account.GetSname()
 		if fields != nil {
 			for m, field := range fields {
 				switch field {
@@ -616,19 +620,9 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 				case "city":
 					city := model.DataCity.GetRev(account.City)
 					buff.WriteString(fmt.Sprintf("\"city\":\"%s\"", city))
-					// for k, v := range model.DataCity.GetMap() {
-					// 	if v == account.City {
-					// 		dat["city"] = k
-					// 	}
-					// }
 				case "country":
 					country := model.DataCountry.GetRev(account.Country)
 					buff.WriteString(fmt.Sprintf("\"country\":\"%s\"", country))
-					// for k, v := range model.DataCountry.GetMap() {
-					// 	if v == account.Country {
-					// 		dat["country"] = k
-					// 	}
-					// }
 				case "birth":
 					buff.WriteString(fmt.Sprintf("\"birth\":%d", account.Birth))
 					//dat["birth"] = account.Birth
@@ -645,11 +639,6 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 					buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", status))
 				case "premium":
 					buff.WriteString(fmt.Sprintf("\"premium\":{\"start\":%d,\"finish\":%d}", account.Start, account.Finish))
-					// prem := model.Premium{
-					// 	Start:  int64(account.Start),
-					// 	Finish: int64(account.Finish),
-					// }
-					// dat["premium"] = prem
 				}
 				if m != len(fields)-1 {
 					buff.WriteString(",")
@@ -657,16 +646,12 @@ func createFilterOutput(accounts []model.User, fields []string) []byte {
 			}
 		}
 		buff.WriteString("}")
-		// tmpBuff.Reset()
-		// enc.Encode(dat)
-		// buff.Write(tmp[:tmpBuff.Len()])
 		if i != (len(accounts) - 1) {
 			buff.WriteString(",")
 		}
-		//out = append(out, dat)
 	}
 	buff.WriteString(end)
-	return bTs[:buff.Len()]
+	return buff.Bytes() //bTs[:buff.Len()]
 }
 
 func toMess(m map[string]sparam) []model.Mess {

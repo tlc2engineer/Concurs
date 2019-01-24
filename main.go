@@ -3,9 +3,11 @@ package main
 import (
 	"Concurs/handlers"
 	"Concurs/model"
+	"archive/zip"
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -20,8 +22,8 @@ import (
 )
 
 const opt = "options.txt"
-const num = 130
-const base = "D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
+const base = "./data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"
+const dfname = "data.zip"
 
 func main() {
 
@@ -36,33 +38,54 @@ func main() {
 		panic(err)
 	}
 	model.Now, err = strconv.ParseInt(string(line), 10, 0)
-
 	if err != nil {
 		panic(err)
 	}
-	// gen := len(os.Args) > 1 && os.Args[1] == "gen"
-	// accounts := make([]model.Account, 0)
-	bdata := make([]byte, 20000000)
-	//users := make([]model.User, 0, num*10000) //num*10000
-	for i := 1; i <= num; i++ {
-		fmt.Println("Номер ", i)
-		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
-		file, err := os.Open(fname)
-		if err != nil {
-			panic("Ошибка чтения")
-		}
-		n, err := file.Read(bdata)
-		if err != nil {
-			panic("Ошибка чтения 1")
-		}
-		bts := bdata[:n]
-		err = model.AddUsers(bts)
-		if err != nil {
-			panic(err)
-		}
-
+	//------открываем zip-------------
+	fnames := make([]string, 0)
+	r, err := zip.OpenReader(base + dfname)
+	if err != nil {
+		panic(err)
+	}
+	for _, f := range r.File {
+		fnames = append(fnames, f.Name)
 	}
 
+	num := len(fnames)
+	bdata := make([]byte, 0, 20000000)
+	tmp := make([]byte, 32768)
+	//buff := bytes.NewBuffer(bdata)
+	//users := make([]model.User, 0, num*10000) //num*10000
+	for i := 1; i <= num; i++ {
+		//fmt.Println("Номер ", i)
+		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
+		for _, f := range r.File {
+			if base+f.Name == fname {
+				bdata = bdata[:0]
+				rc, err := f.Open()
+				if err != nil {
+					panic("Ошибка чтения")
+				}
+				for {
+					_, err := rc.Read(tmp)
+					if err != nil {
+						if err == io.EOF {
+							bdata = append(bdata, tmp...)
+							break
+						}
+						panic(err)
+					}
+					bdata = append(bdata, tmp...)
+				}
+
+				err = model.AddUsers(bdata)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+	}
+	r.Close()
 	/* Генерация sql
 	if gen {
 		fmt.Println("In SQL")
@@ -185,14 +208,6 @@ func clear() {
 				}(&on)
 				runtime.GC()
 			}
-			// all := ms.HeapAlloc
-			// fmt.Println("h all", all)
-			// fmt.Println("idle", ms.HeapIdle)
-			// fmt.Println("inuse", ms.HeapInuse)
-			// fmt.Println(ms.Alloc)
-			// fmt.Println(ms.Frees)
-			// fmt.Println(ms.TotalAlloc)
-			// fmt.Println(ms.Sys)
 		}
 	}
 }
