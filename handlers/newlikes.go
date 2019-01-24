@@ -3,7 +3,6 @@ package handlers
 import (
 	"Concurs/model"
 	"encoding/json"
-	"time"
 
 	"github.com/valyala/fasthttp"
 )
@@ -58,25 +57,49 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			if len(data) != 1 {
 				break
 			}
-			time.Sleep(time.Millisecond * 50)
+			//time.Sleep(time.Millisecond * 50)
 		}
 		// добавление
 		found := false
 		for i := 0; i < len(data)/8; i++ {
-			l := model.LikeUnPack(data[i*8 : i*8+8])
-			if l.ID == id2 { // уже есть лайк
+			addr := i * 8
+			tid := uint32(data[addr]) | uint32(data[addr+1])<<8 | uint32(data[addr+2])<<16
+			if tid == uint32(id2) { // уже есть лайк
 				cnt := data[i*8+7]
 				cnt++
 				data[i*8+7] = cnt
 				found = true
 				break
 			}
+			if tid > uint32(id2) {
+				found = true
+				l := model.Like{Ts: float64(ts), ID: id2, Num: 1}
+				p := model.LikePack(l)
+				ndata := make([]byte, len(data)+8)
+				copy(ndata[:addr], data[:addr])
+				copy(ndata[addr+8:], data[addr:])
+				copy(ndata[addr:], p)
+				data = ndata
+				model.AddWho(uint32(id), l)
+				break
+			}
 		}
 		if !found { // у аккаунта нет лайков на того же пользователя
 			l := model.Like{Ts: float64(ts), ID: id2, Num: 1}
+			// lks := model.UnPackLSlice(data)
+			// lks = append(lks, l)
+			// sort.Slice(lks, func(i, j int) bool {
+			// 	return lks[i].ID < lks[j].ID
+			// })
+			// data = model.PackLSlice(lks)
 			p := model.LikePack(l)
+			ndata := make([]byte, len(data)+8)
+			if true { // добавление в конец списка
+				copy(ndata[:len(data)], data)
+				copy(ndata[len(data):], p)
+				data = ndata
+			}
 			model.AddWho(uint32(id), l)
-			data = append(data, p...)
 		}
 		model.SetLikes(uint32(id), data)
 	}

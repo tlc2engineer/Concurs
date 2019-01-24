@@ -116,7 +116,7 @@ func suggestOutput(accounts []model.User) []byte {
 }
 
 /*filterSuggest - фильтрация пользователей по полу,стране,городу*/
-func filterSuggest(account model.User, country uint16, city uint16) []model.User {
+func filterSuggest(account model.User, country uint16, city uint16) []*model.User {
 	whos := model.GetLikes(account.ID) // лайки данного аккаунта
 	wh := make(map[uint32]bool)        // карта других кто еще лайкал
 	//t2 := time.Now()
@@ -142,7 +142,7 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 	sex := account.Sex
 	rec := sex
 	for i := range wh {
-		acc, _ := model.GetAccount(i)
+		acc := model.MainMap[i]
 		if acc.Sex != sex {
 			continue
 		}
@@ -169,16 +169,15 @@ func filterSuggest(account model.User, country uint16, city uint16) []model.User
 	sort.Slice(tmp, func(i, j int) bool {
 		return tmp[i].s > tmp[j].s
 	})
-	filtered := make([]model.User, 0, len(tmp))
+	filtered := make([]*model.User, 0, len(tmp))
 	for i := range tmp {
 		filtered = append(filtered, tmp[i].user)
 	}
 	return filtered
-
 }
 
 /*getSuggestAcc - аккаунты которые любят пользователи с близкими симпатиями*/
-func getSuggestAcc(sugg []model.User, exclID map[uint32]bool, limit int, city uint16, country uint16) []model.User {
+func getSuggestAcc(sugg []*model.User, exclID map[uint32]bool, limit int, city uint16, country uint16) []model.User {
 	ret := make([]model.User, 0) // возвращаемое значение
 	for i := range sugg {
 		data := model.GetLikes(sugg[i].ID)        // id предпочитает данный пользователь
@@ -211,5 +210,5 @@ func getSuggestAcc(sugg []model.User, exclID map[uint32]bool, limit int, city ui
 
 type tmpS struct {
 	s    float64
-	user model.User
+	user *model.User
 }

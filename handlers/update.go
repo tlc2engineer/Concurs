@@ -4,6 +4,7 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -274,6 +275,9 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Finish = uint32(finish)
 		case "likes":
 			likes := model.NormLikes(likes) // нормируем
+			sort.Slice(likes, func(i, j int) bool {
+				return likes[i].ID < likes[j].ID
+			})
 			model.SetLikes(uint32(id), model.PackLSlice(likes))
 			model.AddWhos(uint32(id), likes)
 			//Удалить старые лайки которых уже нет!

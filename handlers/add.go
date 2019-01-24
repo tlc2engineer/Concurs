@@ -4,6 +4,7 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -70,6 +71,9 @@ func Add(ctx *fasthttp.RequestCtx) {
 	likes := acc.Likes
 	likes = model.NormLikes(likes)
 	acc.Likes = likes
+	sort.Slice(likes, func(i, j int) bool {
+		return likes[i].ID < likes[j].ID
+	})
 	inLikes := model.PackLSlice(likes)
 	model.SetLikes(uint32(acc.ID), inLikes)
 	model.AddWhos(uint32(acc.ID), likes)
