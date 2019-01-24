@@ -3,17 +3,17 @@ package main
 import (
 	"Concurs/handlers"
 	"Concurs/model"
-	"runtime"
-	"time"
-
 	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/buaazp/fasthttprouter"
 	"github.com/valyala/fasthttp"
@@ -74,7 +74,8 @@ func main() {
 	}
 	*/
 	model.SetUsers()
-	go clear()
+	//go clear()
+	debug.SetGCPercent(50)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
