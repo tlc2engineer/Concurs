@@ -22,24 +22,29 @@ import (
 )
 
 const opt = "options.txt"
-const base = "/home/sergey/Загрузки/data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
+const base = "/tmp/data/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
 const dfname = "data.zip"
+const addr = ":80"
 
 func main() {
-
+	ft := false
 	//----------------------------------------
 	file, err := os.Open(base + opt)
 	if err != nil {
-		panic(err)
+		model.Now = time.Now().Unix()
+		ft = true
+		//panic(err)
 	}
-	reader := bufio.NewReader(file)
-	line, _, err := reader.ReadLine()
-	if err != nil {
-		panic(err)
-	}
-	model.Now, err = strconv.ParseInt(string(line), 10, 0)
-	if err != nil {
-		panic(err)
+	if !ft {
+		reader := bufio.NewReader(file)
+		line, _, err := reader.ReadLine()
+		if err != nil {
+			panic(err)
+		}
+		model.Now, err = strconv.ParseInt(string(line), 10, 0)
+		if err != nil {
+			panic(err)
+		}
 	}
 	//------открываем zip-------------
 	fnames := make([]string, 0)
@@ -102,7 +107,7 @@ func main() {
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
-	log.Fatal(fasthttp.ListenAndServe(":8080", router.Handler))
+	log.Fatal(fasthttp.ListenAndServe(addr, router.Handler))
 }
 
 func getData(fname string) ([]model.Account, error) {

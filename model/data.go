@@ -32,6 +32,7 @@ func SetUsers() {
 			PhoneMap[pacc.Phone] = uint32(pacc.ID)
 		}
 	}
+	//fmt.Println("Start")
 
 }
 
@@ -49,13 +50,14 @@ func AddAcc(user User) {
 	ln := len(users)
 	if ln > 0 && user.ID < users[ln-1].ID { // если больше последнего элемента добавляем в конец иначе вставка
 		i := ln - 1 // начиная с последнего элемента
-		for i >= 0 && user.ID < users[ln-1].ID {
+		for i >= 0 && user.ID < users[i].ID {
 			i--
 		}
+		i = i + 1
 		//вставка
 		users = append(users, User{})
-		copy(users[i+2:], users[i+1:]) // вставляем id перед i
-		users[i+1] = user
+		copy(users[i+1:], users[i:]) // вставляем id перед i
+		users[i] = user
 		for j := range users[i:] { //изменяем указатели
 			MainMap[users[j].ID] = &users[j]
 		}

@@ -160,103 +160,35 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 		ff = append(ff, f)
 	}
+
+	ss := func() (int, int) {
+		var isex, istatus int
+		psex, ok := actParams["sex"]
+		if !ok {
+			isex = -1
+		} else {
+			ssex := psex.sval
+			if ssex == "m" {
+				isex = 1
+			}
+		}
+		pstatus, ok := actParams["status"]
+		if !ok {
+			istatus = -1
+		} else {
+			istatus = int(model.DataStatus[pstatus.sval])
+		}
+		return isex, istatus
+	}
 	//-----------использование индексов---------------
 	fInd := model.GroupAgg(toMessG(actParams), resMap, ff, fkey)
 	//------------------------------------------------
 	if !fInd {
-		ckeys := map[string]bool{"city": false, "sex": false, "status": false}
-		find := true
-		for _, key := range keys {
-			_, ok := ckeys[key]
-			if !ok {
-				find = false
-				break
-			}
-		}
-		if find {
-			var isex, istatus int
-			psex, ok := actParams["sex"]
-			if !ok {
-				isex = -1
-			} else {
-				ssex := psex.sval
-				if ssex == "m" {
-					isex = 1
-				}
-			}
-			pstatus, ok := actParams["status"]
-			if !ok {
-				istatus = -1
-			} else {
-				istatus = int(model.DataStatus[pstatus.sval])
-			}
-			model.GroupCity(keys, isex, istatus, resMap)
-		}
-		//-------------------------------------------------------------------------
-		if !find {
-			cokeys := map[string]bool{"country": false, "sex": false, "status": false}
-			find = true
-			for _, key := range keys {
-				_, ok := cokeys[key]
-				if !ok {
-					find = false
-					break
-				}
-			}
-			if find {
-				var isex, istatus int
-				psex, ok := actParams["sex"]
-				if !ok {
-					isex = -1
-				} else {
-					ssex := psex.sval
-					if ssex == "m" {
-						isex = 1
-					}
-				}
-				pstatus, ok := actParams["status"]
-				if !ok {
-					istatus = -1
-				} else {
-					istatus = int(model.DataStatus[pstatus.sval])
-				}
-				model.GroupCountry(keys, isex, istatus, resMap)
-			}
-		}
-		//-------------------------------------------
-		if !find {
-			ikeys := map[string]bool{"interests": false, "sex": false, "status": false}
-			find = true
-			for _, key := range keys {
-				_, ok := ikeys[key]
-				if !ok {
-					find = false
-					break
-				}
-			}
-			if find {
-				var isex, istatus int
-				psex, ok := actParams["sex"]
-				if !ok {
-					isex = -1
-				} else {
-					ssex := psex.sval
-					if ssex == "m" {
-						isex = 1
-					}
-				}
-				pstatus, ok := actParams["status"]
-				if !ok {
-					istatus = -1
-				} else {
-					istatus = int(model.DataStatus[pstatus.sval])
-				}
-				model.GroupInt(keys, isex, istatus, resMap)
-			}
-
-		}
+		isex, istatus := ss()
+		find := model.GroupI(keys, isex, istatus, resMap)
 		//--------------------------------------------
 		if !find {
+			fmt.Println("--mc--", keys)
 			// основной цикл перебор
 			accounts := model.GetAccounts()
 		m:
