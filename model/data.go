@@ -32,7 +32,7 @@ func SetUsers() {
 			PhoneMap[pacc.Phone] = uint32(pacc.ID)
 		}
 	}
-	//fmt.Println("Start")
+	fmt.Println("Start")
 
 }
 
@@ -58,8 +58,9 @@ func AddAcc(user User) {
 		users = append(users, User{})
 		copy(users[i+1:], users[i:]) // вставляем id перед i
 		users[i] = user
-		for j := range users[i:] { //изменяем указатели
-			MainMap[users[j].ID] = &users[j]
+		ts := users[i:]
+		for j := range ts { //изменяем указатели
+			MainMap[ts[j].ID] = &ts[j]
 		}
 		//fmt.Println("---Insert---")
 	} else {

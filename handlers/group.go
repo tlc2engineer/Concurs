@@ -279,8 +279,10 @@ func createGroupOutput(res []res, keys []string) []byte {
 			for _, key := range keys {
 				if !(r.par[key] == 0 && (key == "city" || key == "country")) {
 					switch key {
-					case "sex", "city", "country", "status":
+					case "sex", "city", "country", "status", "interests":
 						dat[key] = model.GetSPVal(key, r.par[key])
+						// case "interests":
+						// 	dat[key] = model.DataInter.GetRev(r.par[key])
 						// if key == "status" {
 						// 	fmt.Println(r.par[key], dat[key])
 						// }

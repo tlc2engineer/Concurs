@@ -372,7 +372,9 @@ func Filter(ctx *fasthttp.RequestCtx) {
 				continue
 			}
 		}
-		filtFunc = append(filtFunc, f)
+		if f != nil {
+			filtFunc = append(filtFunc, f)
+		}
 	}
 	if noneFlag {
 		retZero(ctx)

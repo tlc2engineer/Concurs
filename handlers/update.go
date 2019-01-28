@@ -213,6 +213,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 	}
 	// удаление старого индекса
 	model.DeleteGIndex(*paccount)
+	model.RemRecIndex(*paccount)
 	// Присвоение значений
 	for k := range vmap {
 		switch k {
@@ -306,6 +307,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		}
 	}
 	model.AddGIndex(*paccount)
+	model.AddRecIndex(*paccount)
 	ctx.SetStatusCode(202) // все в норме
 	ctx.Write([]byte(""))
 	return
