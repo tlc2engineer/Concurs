@@ -185,10 +185,40 @@ func Group(ctx *fasthttp.RequestCtx) {
 	//------------------------------------------------
 	if !fInd {
 		isex, istatus := ss()
-		find := model.GroupI(keys, isex, istatus, resMap)
+		var city, country uint16
+		var dat []uint16
+		_, ok = actParams["city"]
+		if ok {
+			city, ok = model.DataCity.Get(actParams["city"].sval)
+			if !ok {
+				retZero(ctx)
+				return
+			}
+		}
+		_, ok = actParams["country"]
+		if ok {
+			country, ok = model.DataCity.Get(actParams["country"].sval)
+			if !ok {
+				retZero(ctx)
+				return
+			}
+		}
+		_, ok = actParams["interests"]
+		if ok {
+			pari := strings.Split(actParams["interests"].sval, ",")
+			dat := make([]uint16, len(pari))
+			for i := range pari {
+				dat[i], ok = model.DataInter.Get(pari[i])
+				if !ok {
+					retZero(ctx)
+					return
+				}
+			}
+		}
+		find := model.GroupI(keys, isex, istatus, resMap, country, city, dat)
 		//--------------------------------------------
 		if !find {
-			fmt.Println("--mc--", keys)
+			fmt.Println("--mc--", keys, actParams)
 			// основной цикл перебор
 			accounts := model.GetAccounts()
 		m:
@@ -213,10 +243,6 @@ func Group(ctx *fasthttp.RequestCtx) {
 			}
 		}
 	}
-	// if true {
-	// 	ctx.SetStatusCode(400)
-	// 	return
-	// }
 	//преобразование карты в срез результатов
 	results := make([]res, 0, len(resMap)) //результаты группировки
 	for k, v := range resMap {
