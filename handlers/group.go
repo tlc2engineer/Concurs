@@ -162,7 +162,9 @@ func Group(ctx *fasthttp.RequestCtx) {
 	}
 
 	//----------------------------------
-	ss := func() (int, int) {
+	ss := func() (int, int, uint16, uint16, []uint16, error) {
+		var city, country uint16
+		var dat []uint16
 		var isex, istatus int
 		psex, ok := actParams["sex"]
 		if !ok {
@@ -179,16 +181,58 @@ func Group(ctx *fasthttp.RequestCtx) {
 		} else {
 			istatus = int(model.DataStatus[pstatus.sval])
 		}
-		return isex, istatus
+		_, ok = actParams["city"]
+		if ok {
+			city, ok = model.DataCity.Get(actParams["city"].sval)
+			if !ok {
+				return 0, 0, 0, 0, nil, fmt.Errorf("Err")
+			}
+		}
+		_, ok = actParams["country"]
+		if ok {
+			country, ok = model.DataCountry.Get(actParams["country"].sval)
+			if !ok {
+				return 0, 0, 0, 0, nil, fmt.Errorf("Err")
+			}
+		}
+		_, ok = actParams["interests"]
+		if ok {
+			pari := strings.Split(actParams["interests"].sval, ",")
+			dat = make([]uint16, len(pari))
+			for i := range pari {
+				dat[i], ok = model.DataInter.Get(pari[i])
+				if !ok {
+					return 0, 0, 0, 0, nil, fmt.Errorf("Err")
+				}
+			}
+		}
+		return isex, istatus, country, city, dat, nil
 	}
 	//--------------------------------------
 	var f1 bool
 	var f2 bool
+	var f3 = false
 	//--------------------------------------------
-	_, ok = actParams["birth"]
-	if ok {
+	_, okb := actParams["birth"]
+	_, okl := actParams["likes"]
+	_, okj := actParams["joined"]
+	if okb && !okl && !okj {
+		isex, istatus, country, city, dat, err := ss()
 		year := actParams["birth"].ival
-		yi := birthGI[year]
+		if err == nil {
+			f3 = model.GBirthY(keys, isex, istatus, resMap, country, city, dat, int(year))
+		} else {
+			f3 = true
+		}
+	}
+	if !okb && !okl && okj {
+		isex, istatus, country, city, dat, err := ss()
+		year := actParams["joined"].ival
+		if err == nil {
+			f3 = model.GJoinY(keys, isex, istatus, resMap, country, city, dat, int(year))
+		} else {
+			f3 = true
+		}
 	}
 	//------Ключи для второго варианта-------------
 	secondInd := []string{"birth", "joined", "likes"}
@@ -204,52 +248,27 @@ ms:
 	}
 
 	//----------------------------------------------------
-	if !sf {
-		isex, istatus := ss()
-		var city, country uint16
-		var dat []uint16
-		_, ok = actParams["city"]
-		if ok {
-			city, ok = model.DataCity.Get(actParams["city"].sval)
-			if !ok {
-				retZero(ctx)
-				return
-			}
-		}
-		_, ok = actParams["country"]
-		if ok {
-			country, ok = model.DataCountry.Get(actParams["country"].sval)
-			if !ok {
-				retZero(ctx)
-				return
-			}
-		}
-		_, ok = actParams["interests"]
-		if ok {
-			pari := strings.Split(actParams["interests"].sval, ",")
-			dat = make([]uint16, len(pari))
-			for i := range pari {
-				dat[i], ok = model.DataInter.Get(pari[i])
-				if !ok {
-					retZero(ctx)
-					return
-				}
-			}
-		}
+	if !sf && !f3 {
+		isex, istatus, country, city, dat, err := ss()
+		//fmt.Println("first", err, isex, istatus, country, city, dat, keys)
 		//-----------Первый выриант-----------------------
-		//fmt.Println("first")
-		f1 = model.GroupI(keys, isex, istatus, resMap, country, city, dat)
+		if err == nil {
+			f1 = model.GroupI(keys, isex, istatus, resMap, country, city, dat)
+			//fmt.Println(resMap)
+		} else {
+			f1 = true
+		}
 
 	}
 	//-----------Второй-------------------------------
 
-	if !f1 {
+	if !f1 && !f3 {
 		//fmt.Println("second")
 		f2 = model.GroupAgg(toMessG(actParams), resMap, ff, fkey)
 	}
 	//--------------FullScan---------------------------
-	if !f1 && !f2 {
-		//	fmt.Println("--mc--", keys, actParams)
+	if !f1 && !f2 && !f3 {
+		//fmt.Println("--mc--", keys, actParams)
 		// основной цикл перебор
 		accounts := model.GetAccounts()
 	m:
