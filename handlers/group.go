@@ -161,6 +161,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 		ff = append(ff, f)
 	}
 
+	//----------------------------------
 	ss := func() (int, int) {
 		var isex, istatus int
 		psex, ok := actParams["sex"]
@@ -180,10 +181,30 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 		return isex, istatus
 	}
-	//-----------использование индексов---------------
-	fInd := model.GroupAgg(toMessG(actParams), resMap, ff, fkey)
-	//------------------------------------------------
-	if !fInd {
+	//--------------------------------------
+	var f1 bool
+	var f2 bool
+	//--------------------------------------------
+	_, ok = actParams["birth"]
+	if ok {
+		year := actParams["birth"].ival
+		yi := birthGI[year]
+	}
+	//------Ключи для второго варианта-------------
+	secondInd := []string{"birth", "joined", "likes"}
+	sf := false
+ms:
+	for par := range actParams {
+		for _, skey := range secondInd {
+			if par == skey {
+				sf = true
+				break ms
+			}
+		}
+	}
+
+	//----------------------------------------------------
+	if !sf {
 		isex, istatus := ss()
 		var city, country uint16
 		var dat []uint16
@@ -197,7 +218,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 		_, ok = actParams["country"]
 		if ok {
-			country, ok = model.DataCity.Get(actParams["country"].sval)
+			country, ok = model.DataCountry.Get(actParams["country"].sval)
 			if !ok {
 				retZero(ctx)
 				return
@@ -206,7 +227,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 		_, ok = actParams["interests"]
 		if ok {
 			pari := strings.Split(actParams["interests"].sval, ",")
-			dat := make([]uint16, len(pari))
+			dat = make([]uint16, len(pari))
 			for i := range pari {
 				dat[i], ok = model.DataInter.Get(pari[i])
 				if !ok {
@@ -215,34 +236,44 @@ func Group(ctx *fasthttp.RequestCtx) {
 				}
 			}
 		}
-		find := model.GroupI(keys, isex, istatus, resMap, country, city, dat)
-		//--------------------------------------------
-		if !find {
-			fmt.Println("--mc--", keys, actParams)
-			// основной цикл перебор
-			accounts := model.GetAccounts()
-		m:
-			for _, account := range accounts {
-				// все фильтры
-				for _, f := range ff {
-					if !f(account) {
-						continue m
-					}
+		//-----------Первый выриант-----------------------
+		//fmt.Println("first")
+		f1 = model.GroupI(keys, isex, istatus, resMap, country, city, dat)
+
+	}
+	//-----------Второй-------------------------------
+
+	if !f1 {
+		//fmt.Println("second")
+		f2 = model.GroupAgg(toMessG(actParams), resMap, ff, fkey)
+	}
+	//--------------FullScan---------------------------
+	if !f1 && !f2 {
+		//	fmt.Println("--mc--", keys, actParams)
+		// основной цикл перебор
+		accounts := model.GetAccounts()
+	m:
+		for _, account := range accounts {
+			// все фильтры
+			for _, f := range ff {
+				if !f(account) {
+					continue m
 				}
-				// группировка
-				newSres := fkey(account)
-				for _, r := range newSres {
-					count, ok := resMap[r]
-					if ok {
-						count++
-						resMap[r] = count
-					} else {
-						resMap[r] = 1
-					}
+			}
+			// группировка
+			newSres := fkey(account)
+			for _, r := range newSres {
+				count, ok := resMap[r]
+				if ok {
+					count++
+					resMap[r] = count
+				} else {
+					resMap[r] = 1
 				}
 			}
 		}
 	}
+
 	//преобразование карты в срез результатов
 	results := make([]res, 0, len(resMap)) //результаты группировки
 	for k, v := range resMap {
@@ -291,7 +322,10 @@ func Group(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(200)
 	ctx.Write(bts)
 	mapBuff.Put(resMap)
-	//fmt.Println(time.Since(now), string(ctx.URI().QueryString()))
+	// dt := time.Since(now)
+	// if dt.Nanoseconds() > 1000000*10 {
+	// 	fmt.Println(time.Since(now), string(ctx.URI().QueryString()))
+	// }
 }
 
 /*createGroupOutput -вывод данных*/
