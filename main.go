@@ -103,7 +103,7 @@ func main() {
 	*/
 	model.SetUsers()
 	//go clear()
-	debug.SetGCPercent(50)
+	debug.SetGCPercent(40)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)

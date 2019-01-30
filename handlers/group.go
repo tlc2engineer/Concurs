@@ -2,12 +2,11 @@ package handlers
 
 import (
 	"Concurs/model"
-	"encoding/json"
+	"bytes"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -37,17 +36,8 @@ type groupRes struct {
 	accounts []model.User
 }
 
-var mapBuff = sync.Pool{
-	New: func() interface{} {
-		return make(map[uint64]int, 10000)
-	},
-}
-
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
-	//now := time.Now()
-	//vars := r.URL.Query()
-	//Ключи группировки и их верификация
 	vkey := string(ctx.QueryArgs().Peek("keys"))
 	if vkey == "" {
 		//fmt.Println("no keys")
@@ -208,7 +198,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 		}
 		return isex, istatus, country, city, dat, nil
 	}
-	//--------------------------------------
+	//--------------------------------------------
 	var f1 bool
 	var f2 bool
 	var f3 = false
@@ -225,6 +215,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 			f3 = true
 		}
 	}
+	//--------------------------------------------
 	if !okb && !okl && okj {
 		isex, istatus, country, city, dat, err := ss()
 		year := actParams["joined"].ival
@@ -234,7 +225,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 			f3 = true
 		}
 	}
-	//------Ключи для второго варианта-------------
+	//------Ключи для второго варианта------------
 	secondInd := []string{"birth", "joined", "likes"}
 	sf := false
 ms:
@@ -294,7 +285,15 @@ ms:
 	}
 
 	//преобразование карты в срез результатов
-	results := make([]res, 0, len(resMap)) //результаты группировки
+	var results []res
+	var fromBuff bool
+	if len(resMap) < 10000 { // берем из буффера
+		fromBuff = true
+		results := resBuff.Get().([]res)
+		results = results[:0]
+	} else { //если много то новый
+		results = make([]res, 0, len(resMap))
+	}
 	for k, v := range resMap {
 		result := res{unpackKey(k, keys), v}
 		results = append(results, result)
@@ -335,116 +334,56 @@ ms:
 		results = results[:limit]
 	}
 	// Вывод
-	bts := createGroupOutput(results, keys)
+	buff := bbuf.Get().(*bytes.Buffer)
+	bts := createGroupOutput(results, keys, buff)
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
 	ctx.Write(bts)
+	bbuf.Put(buff)
 	mapBuff.Put(resMap)
-	// dt := time.Since(now)
-	// if dt.Nanoseconds() > 1000000*10 {
-	// 	fmt.Println(time.Since(now), string(ctx.URI().QueryString()))
-	// }
+	if fromBuff {
+		resBuff.Put(results)
+	}
+
 }
 
 /*createGroupOutput -вывод данных*/
-func createGroupOutput(res []res, keys []string) []byte {
-	resp := make(map[string][]map[string]interface{})
-	out := make([]map[string]interface{}, 0, len(res))
-	for _, r := range res {
+func createGroupOutput(res []res, keys []string, buff *bytes.Buffer) []byte {
+
+	bg := "{\"groups\":["
+	end := "]}"
+	buff.Reset()
+	buff.WriteString(bg)
+	for i, r := range res {
 		if len(r.par) == len(keys) {
-			dat := make(map[string]interface{})
-			dat["count"] = r.count
+			buff.WriteString("{")
+			buff.WriteString(fmt.Sprintf("\"count\":%d", r.count))
+			// if len(keys) > 0 {
+			// 	buff.WriteString(",")
+			// }
 			for _, key := range keys {
 				if !(r.par[key] == 0 && (key == "city" || key == "country")) {
 					switch key {
 					case "sex", "city", "country", "status", "interests":
-						dat[key] = model.GetSPVal(key, r.par[key])
-						// case "interests":
-						// 	dat[key] = model.DataInter.GetRev(r.par[key])
-						// if key == "status" {
-						// 	fmt.Println(r.par[key], dat[key])
-						// }
+						buff.WriteString(",")
+						//	"interests":"\u0411\u043e\u0435\u0432\u044b\u0435 \u0438\u0441\u043a\u0443\u0441\u0441\u0442\u0432\u0430"
+						buff.WriteString(fmt.Sprintf("\"%s\":\"%s\"", key, model.GetSPVal(key, r.par[key])))
+						//dat[key] = model.GetSPVal(key, r.par[key])
 					}
 				}
+				// if j != (len(keys) - 1) {
+				// 	buff.WriteString(",")
+				// }
 			}
-			out = append(out, dat)
+			buff.WriteString("}")
+			if i != (len(res) - 1) {
+				buff.WriteString(",")
+			}
 		}
 	}
-	resp["groups"] = out
-	bts, _ := json.Marshal(resp)
-	return bts
-}
-
-/*groupResults - группировка по строковым параметрам*/
-func groupResults(name string, results []groupRes) []groupRes {
-	for _, gr := range results {
-		fmap := make(map[uint16][]model.User)
-		var val uint16
-		for _, account := range gr.accounts {
-			switch name {
-			case "city":
-				val = account.City
-			case "country":
-				val = account.Country
-			case "status":
-				val = uint16(account.Status)
-			case "sex":
-				val = 0
-				if account.Sex {
-					val = 1
-				}
-			}
-			list, ok := fmap[val]
-			if ok {
-				list = append(list, account)
-			} else {
-				list = []model.User{account}
-			}
-			fmap[val] = list
-		}
-		params := gr.params
-		for k, v := range fmap {
-			newpar := make(map[string]uint16)
-			for k1, v1 := range params {
-				newpar[k1] = v1
-			}
-			newpar[name] = k
-			one := groupRes{params: newpar, accounts: v}
-			results = append(results, one)
-		}
-
-	}
-	return results
-}
-
-/*groupInterests - группировка по интересам*/
-func groupInterests(results []groupRes) []groupRes {
-	for _, gr := range results {
-		fmap := make(map[uint16][]model.User)
-		for _, account := range gr.accounts {
-			for _, inter := range account.Interests {
-				list, ok := fmap[inter]
-				if ok {
-					list = append(list, account)
-				} else {
-					list = []model.User{account}
-				}
-				fmap[inter] = list
-			}
-		}
-		params := gr.params
-		for k, v := range fmap {
-			newpar := make(map[string]uint16)
-			for k1, v1 := range params {
-				newpar[k1] = v1
-			}
-			newpar["interests"] = k
-			one := groupRes{params: newpar, accounts: v}
-			results = append(results, one)
-		}
-	}
-	return results
+	buff.WriteString(end)
+	return buff.Bytes()
 }
 
 /*createFKey - создается функция которая генерирует ключ*/

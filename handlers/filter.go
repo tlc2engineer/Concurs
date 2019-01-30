@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -25,19 +24,6 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 	"sname": {"null", "starts", "eq"}, "phone": {"null", "code"}, "sex": {"eq"}, "country": {"null", "eq"},
 	"city": {"null", "eq", "any"}, "status": {"eq", "neq"}, "interests": {"any", "contains"}, "birth": {"lt", "gt", "year"},
 	"premium": {"now", "null"}, "likes": {"contains"}}
-
-var bbuf = sync.Pool{
-	New: func() interface{} {
-		var bTs = make([]byte, 10000)
-		return bytes.NewBuffer(bTs)
-	},
-}
-
-var ubuff = sync.Pool{
-	New: func() interface{} {
-		return make([]*model.User, 0, 1000)
-	},
-}
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {

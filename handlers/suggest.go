@@ -2,7 +2,8 @@ package handlers
 
 import (
 	"Concurs/model"
-	"encoding/json"
+	"bytes"
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -68,7 +69,8 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		retZero(ctx)
 		return
 	}
-	filtered := filterSuggest(account, countryVal, cityVal)
+	filtered := ubuff.Get().([]*model.User)
+	filtered = filterSuggest(account, countryVal, cityVal, filtered)
 
 	// сортировка по предпочтениям
 	idMap := make(map[uint32]bool)
@@ -84,33 +86,40 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
-	ctx.Write(suggestOutput(sugg))
+	bbuff := bbuf.Get().(*bytes.Buffer)
+	ctx.Write(suggestOutput(sugg, bbuff))
+	ubuff.Put(filtered)
+	bbuf.Put(bbuff)
 }
 
 /*suggestOutput - вывод данных*/
-func suggestOutput(accounts []*model.User) []byte {
-	resp := make(map[string][]map[string]interface{})
-	out := make([]map[string]interface{}, 0, len(accounts))
-	for _, account := range accounts {
-		dat := make(map[string]interface{})
-		dat["email"] = account.Email
-		dat["id"] = account.ID
-		dat["status"] = model.GetSPVal("status", uint16(account.Status))
+func suggestOutput(accounts []*model.User, buff *bytes.Buffer) []byte {
+	bg := "{\"accounts\":["
+	end := "]}"
+	buff.Reset()
+	buff.WriteString(bg)
+	for i, account := range accounts {
+		buff.WriteString("{")
+		buff.WriteString(fmt.Sprintf("\"email\":\"%s\",\"id\":%d,", account.Email, account.ID))
+		buff.WriteString(fmt.Sprintf("\"status\":\"%s\",", model.GetSPVal("status", uint16(account.Status))))
 		if account.SName != 0 {
-			dat["sname"] = account.GetSname()
+			buff.WriteString(fmt.Sprintf("\"sname\":\"%s\",", account.GetSname()))
 		}
 		if account.FName != 0 {
-			dat["fname"] = account.GetFname()
+			buff.WriteString(fmt.Sprintf("\"fname\":\"%s\",", account.GetFname()))
 		}
-		out = append(out, dat)
+		buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", model.GetSPVal("status", uint16(account.Status))))
+		buff.WriteString("}")
+		if i != (len(accounts) - 1) {
+			buff.WriteString(",")
+		}
 	}
-	resp["accounts"] = out
-	bts, _ := json.Marshal(resp)
-	return bts
+	buff.WriteString(end)
+	return buff.Bytes()
 }
 
 /*filterSuggest - фильтрация пользователей по полу,стране,городу*/
-func filterSuggest(account model.User, country uint16, city uint16) []*model.User {
+func filterSuggest(account model.User, country uint16, city uint16, filtered []*model.User) []*model.User {
 	whos := model.GetLikes(account.ID) // лайки данного аккаунта
 	wh := make(map[uint32]bool)        // карта других кто еще лайкал
 	//t2 := time.Now()
@@ -131,8 +140,9 @@ func filterSuggest(account model.User, country uint16, city uint16) []*model.Use
 		}
 	}
 	//fmt.Println("Whos", time.Since(t2))
-	tmp := make([]tmpS, 0)
-
+	//tmp := make([]tmpS, 0)
+	tmp := buffTmps.Get().([]tmpS)
+	tmp = tmp[:0]
 	sex := account.Sex
 	rec := sex
 	for i := range wh {
@@ -171,10 +181,11 @@ func filterSuggest(account model.User, country uint16, city uint16) []*model.Use
 		return tmp[i].s > tmp[j].s
 	})
 	//fmt.Println(tmp[0].s, tmp[0].user.ID, tmp[1].s, tmp[1].user.ID)
-	filtered := make([]*model.User, 0, len(tmp))
+	filtered = filtered[:0]
 	for i := range tmp {
 		filtered = append(filtered, tmp[i].user)
 	}
+	buffTmps.Put(tmp)
 	return filtered
 }
 
