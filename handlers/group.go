@@ -36,91 +36,133 @@ type groupRes struct {
 	accounts []model.User
 }
 
+//var actParams = map[string]param{}
+
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
-	vkey := string(ctx.QueryArgs().Peek("keys"))
-	if vkey == "" {
-		//fmt.Println("no keys")
-		ctx.SetStatusCode(400)
-		return
-	}
-	keys := strings.Split(vkey, ",")
-	if len(keys) == 0 {
-		//fmt.Println("no keys")
-		ctx.SetStatusCode(400)
-		return
-	}
-	// Проверка ключей поиска
-	for _, key := range keys {
-		found := false
-		for _, legal := range keysLegal {
-			if key == legal { // ключа нет в списке
-				found = true
-				break
-			}
-		}
-		if !found {
-			//fmt.Println("illegal key " + key)
-			ctx.SetStatusCode(400)
-			return
-		}
-	}
-	// Получение параметров и верификация
+	var keys []string
+	errFlag := false
+	limit := -1
+	order := 1
 	actParams := map[string]param{}
-	for k, v := range params {
-		p := string(ctx.QueryArgs().Peek(k))
-		if p != "" {
-			switch v.tp {
-			case it:
-				ival, err := strconv.ParseInt(p, 10, 0)
-				if err != nil {
-					ctx.SetStatusCode(400)
-					return
+	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
+		k := string(kp)
+		val := string(v)
+		switch k {
+		case "keys":
+			if val == "" {
+				ctx.SetStatusCode(400)
+				return
+			}
+			keys = strings.Split(val, ",")
+			if len(keys) == 0 {
+				errFlag = true
+			}
+			// Проверка ключей поиска
+			for _, key := range keys {
+				found := false
+				for _, legal := range keysLegal {
+					if key == legal { // ключа нет в списке
+						found = true
+						break
+					}
 				}
-				if k == "order" && ival != 1 && ival != -1 {
-					ctx.SetStatusCode(400)
-					return
+				if !found {
+					errFlag = true
 				}
-				v.ival = ival
-				actParams[k] = v
-			case st:
-				if k == "sex" {
-					if p != "m" && p != "f" {
+			}
+			actParams[k] = param{sval: val, tp: st}
+		case "limit":
+			num, err := strconv.ParseInt(val, 10, 0)
+			if err != nil {
+				errFlag = true
+			}
+			limit = int(num)
+			if limit <= 0 {
+				errFlag = true
+			}
+			actParams[k] = param{ival: int64(limit), tp: it}
+		case "order":
+			num, err := strconv.ParseInt(val, 10, 0)
+			if err != nil {
+				errFlag = true
+			}
+			order = int(num)
+			if order != -1 && order != 1 {
+				errFlag = true
+			}
+			actParams[k] = param{ival: int64(order), tp: it}
+		case "likes", "birth", "joined", "query_id":
+			num, err := strconv.ParseInt(val, 10, 0)
+			if err != nil {
+				errFlag = true
+			}
+			data := int(num)
+			actParams[k] = param{ival: int64(data), tp: it}
+		case "sex":
+			if val != "m" && val != "f" {
+				errFlag = true
+			}
+			actParams[k] = param{sval: val, tp: st}
+		case "country", "city", "interests", "status":
+			actParams[k] = param{sval: val, tp: st}
+		default:
+			errFlag = true
+
+		}
+	})
+	if errFlag {
+		//fmt.Println("err flag")
+		ctx.SetStatusCode(400)
+		return
+	}
+	//fmt.Println(actParams)
+	// Получение параметров и верификация
+	/*
+		for k, v := range params {
+			//ctx.QueryArgs().
+			p := string(ctx.QueryArgs().Peek(k))
+			if p != "" {
+				switch v.tp {
+				case it:
+					ival, err := strconv.ParseInt(p, 10, 0)
+					if err != nil {
+						ctx.SetStatusCode(400)
+						return
+					}
+					if k == "order" && ival != 1 && ival != -1 {
+						ctx.SetStatusCode(400)
+						return
+					}
+					v.ival = ival
+					actParams[k] = v
+				case st:
+					if k == "sex" {
+						if p != "m" && p != "f" {
+							ctx.SetStatusCode(400)
+							return
+						}
+					}
+					v.sval = p
+					actParams[k] = v
+				case dt:
+					ival, err := strconv.ParseInt(p, 10, 0)
+					if err != nil {
+						ctx.SetStatusCode(400)
+						return
+					}
+					tm := time.Unix(ival, 0)
+					if tm.Year() < 1950 {
 						ctx.SetStatusCode(400)
 						return
 					}
 				}
-				v.sval = p
-				actParams[k] = v
-			case dt:
-				ival, err := strconv.ParseInt(p, 10, 0)
-				if err != nil {
-					ctx.SetStatusCode(400)
-					return
-				}
-				tm := time.Unix(ival, 0)
-				if tm.Year() < 1950 {
-					ctx.SetStatusCode(400)
-					return
-				}
-			}
 
+			}
 		}
-	}
-	// order и limit
-	limit := -1
-	limP, ok := actParams["limit"]
-	if ok {
-		limit = int(limP.ival)
-	}
-	order := 1
-	orderP, ok := actParams["order"]
-	if ok {
-		order = int(orderP.ival)
-	}
+	*/
 	// группировка
 	// удаление значений
-
 	fkey := createFKey(keys) // преобразование в ключ поиска
 	resMap := mapBuff.Get().(map[uint64]int)
 	for k := range resMap {
@@ -241,7 +283,7 @@ ms:
 	//----------------------------------------------------
 	if !sf && !f3 {
 		isex, istatus, country, city, dat, err := ss()
-		//fmt.Println("first", err, isex, istatus, country, city, dat, keys)
+		//fmt.Println("first", err, isex, istatus, country, city, dat, keys, err)
 		//-----------Первый выриант-----------------------
 		if err == nil {
 			f1 = model.GroupI(keys, isex, istatus, resMap, country, city, dat)
@@ -254,8 +296,10 @@ ms:
 	//-----------Второй-------------------------------
 
 	if !f1 && !f3 {
-		//fmt.Println("second")
-		f2 = model.GroupAgg(toMessG(actParams), resMap, ff, fkey)
+
+		msg := toMessG(actParams)
+
+		f2 = model.GroupAgg(msg, resMap, ff, fkey)
 	}
 	//--------------FullScan---------------------------
 	if !f1 && !f2 && !f3 {
