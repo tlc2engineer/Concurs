@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"Concurs/model"
+	"Concurs/rgbtree"
 	"bytes"
 	"fmt"
+
 	"sort"
 	"strconv"
 	"strings"
@@ -40,11 +42,13 @@ type groupRes struct {
 
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
+
 	var keys []string
 	errFlag := false
 	limit := -1
 	order := 1
 	actParams := map[string]param{}
+
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
 		k := string(kp)
 		val := string(v)
@@ -116,58 +120,16 @@ func Group(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	//fmt.Println(actParams)
-	// Получение параметров и верификация
-	/*
-		for k, v := range params {
-			//ctx.QueryArgs().
-			p := string(ctx.QueryArgs().Peek(k))
-			if p != "" {
-				switch v.tp {
-				case it:
-					ival, err := strconv.ParseInt(p, 10, 0)
-					if err != nil {
-						ctx.SetStatusCode(400)
-						return
-					}
-					if k == "order" && ival != 1 && ival != -1 {
-						ctx.SetStatusCode(400)
-						return
-					}
-					v.ival = ival
-					actParams[k] = v
-				case st:
-					if k == "sex" {
-						if p != "m" && p != "f" {
-							ctx.SetStatusCode(400)
-							return
-						}
-					}
-					v.sval = p
-					actParams[k] = v
-				case dt:
-					ival, err := strconv.ParseInt(p, 10, 0)
-					if err != nil {
-						ctx.SetStatusCode(400)
-						return
-					}
-					tm := time.Unix(ival, 0)
-					if tm.Year() < 1950 {
-						ctx.SetStatusCode(400)
-						return
-					}
-				}
 
-			}
-		}
-	*/
 	// группировка
 	// удаление значений
 	fkey := createFKey(keys) // преобразование в ключ поиска
-	resMap := mapBuff.Get().(map[uint64]int)
-	for k := range resMap {
-		delete(resMap, k)
-	}
+	tmap := groupMap.Get().(rgbtree.UTree)
+	tmap.Clear() // очистка
+	// resMap := mapBuff.Get().(map[uint64]int)
+	// for k := range resMap {
+	// 	delete(resMap, k)
+	// }
 	// Фильтрация
 	// Список функций фильтрации
 	ff := make([]func(model.User) bool, 0)
@@ -252,7 +214,8 @@ func Group(ctx *fasthttp.RequestCtx) {
 		isex, istatus, country, city, dat, err := ss()
 		year := actParams["birth"].ival
 		if err == nil {
-			f3 = model.GBirthY(keys, isex, istatus, resMap, country, city, dat, int(year))
+			f3 = model.GBirthY(keys, isex, istatus, &tmap, country, city, dat, int(year))
+			//fmt.Println(tmap.Get(0))
 		} else {
 			f3 = true
 		}
@@ -262,7 +225,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 		isex, istatus, country, city, dat, err := ss()
 		year := actParams["joined"].ival
 		if err == nil {
-			f3 = model.GJoinY(keys, isex, istatus, resMap, country, city, dat, int(year))
+			f3 = model.GJoinY(keys, isex, istatus, &tmap, country, city, dat, int(year))
 		} else {
 			f3 = true
 		}
@@ -286,8 +249,8 @@ ms:
 		//fmt.Println("first", err, isex, istatus, country, city, dat, keys, err)
 		//-----------Первый выриант-----------------------
 		if err == nil {
-			f1 = model.GroupI(keys, isex, istatus, resMap, country, city, dat)
-			//fmt.Println(resMap)
+			f1 = model.GroupI(keys, isex, istatus, &tmap, country, city, dat)
+			//fmt.Println(tmap)
 		} else {
 			f1 = true
 		}
@@ -299,7 +262,7 @@ ms:
 
 		msg := toMessG(actParams)
 
-		f2 = model.GroupAgg(msg, resMap, ff, fkey)
+		f2 = model.GroupAgg(msg, &tmap, ff, fkey)
 	}
 	//--------------FullScan---------------------------
 	if !f1 && !f2 && !f3 {
@@ -317,12 +280,14 @@ ms:
 			// группировка
 			newSres := fkey(account)
 			for _, r := range newSres {
-				count, ok := resMap[r]
+				count, ok := tmap.Get(r)
 				if ok {
 					count++
-					resMap[r] = count
+					tmap.Put(r, count)
+					//resMap[r] = count
 				} else {
-					resMap[r] = 1
+					tmap.Put(r, 1)
+					//resMap[r] = 1
 				}
 			}
 		}
@@ -331,16 +296,30 @@ ms:
 	//преобразование карты в срез результатов
 	var results []res
 	var fromBuff bool
-	if len(resMap) < 10000 { // берем из буффера
+	if tmap.Size() < 10000 { // берем из буффера
 		fromBuff = true
 		results := resBuff.Get().([]res)
 		results = results[:0]
 	} else { //если много то новый
-		results = make([]res, 0, len(resMap))
+		results = make([]res, 0, tmap.Size())
 	}
-	for k, v := range resMap {
-		result := res{unpackKey(k, keys), v}
+	//-------------------------------------------
+	uintBuff := uintB.Get().([]uint64)
+	tkeys := tmap.Keys(uintBuff)
+	intBuff := intB.Get().([]int)
+	tval := tmap.Values(intBuff)
+	u16Buf := uint16Buff.Get().([]uint16)
+	cbuf := 0
+	klen := len(keys)
+	for i := range tkeys {
+		var result res
+		if 10000 > cbuf+klen { // длины хватает
+			result = res{unpackKey(tkeys[i], keys, u16Buf[cbuf:cbuf+klen]), tval[i]}
+		} else {
+			result = res{unpackKey(tkeys[i], keys, make([]uint16, 0, klen)), tval[i]}
+		}
 		results = append(results, result)
+		cbuf += klen
 	}
 	// Сортировка
 	if order == 1 {
@@ -350,9 +329,9 @@ ms:
 			if s.count != f.count {
 				return f.count < s.count
 			}
-			for _, key := range keys {
-				if f.par[key] != s.par[key] {
-					return strings.Compare(model.GetSPVal(key, f.par[key]), model.GetSPVal(key, s.par[key])) < 0
+			for k := range keys {
+				if f.par[k] != s.par[k] {
+					return strings.Compare(model.GetSPVal(keys[k], f.par[k]), model.GetSPVal(keys[k], s.par[k])) < 0
 				}
 			}
 			return false
@@ -365,9 +344,9 @@ ms:
 			if s.count != f.count {
 				return f.count > s.count
 			}
-			for _, key := range keys {
-				if f.par[key] != s.par[key] {
-					return strings.Compare(model.GetSPVal(key, f.par[key]), model.GetSPVal(key, s.par[key])) > 0
+			for k := range keys {
+				if f.par[k] != s.par[k] {
+					return strings.Compare(model.GetSPVal(keys[k], f.par[k]), model.GetSPVal(keys[k], s.par[k])) > 0
 				}
 			}
 			return false
@@ -385,10 +364,14 @@ ms:
 	ctx.SetStatusCode(200)
 	ctx.Write(bts)
 	bbuf.Put(buff)
-	mapBuff.Put(resMap)
+	groupMap.Put(tmap)
+	uintB.Put(uintBuff)
+	intB.Put(intBuff)
+	//mapBuff.Put(resMap)
 	if fromBuff {
 		resBuff.Put(results)
 	}
+	uint16Buff.Put(u16Buf)
 
 }
 
@@ -406,19 +389,17 @@ func createGroupOutput(res []res, keys []string, buff *bytes.Buffer) []byte {
 			// if len(keys) > 0 {
 			// 	buff.WriteString(",")
 			// }
-			for _, key := range keys {
-				if !(r.par[key] == 0 && (key == "city" || key == "country")) {
+			for k, key := range keys {
+				if !(r.par[k] == 0 && (key == "city" || key == "country")) {
 					switch key {
 					case "sex", "city", "country", "status", "interests":
 						buff.WriteString(",")
 						//	"interests":"\u0411\u043e\u0435\u0432\u044b\u0435 \u0438\u0441\u043a\u0443\u0441\u0441\u0442\u0432\u0430"
-						buff.WriteString(fmt.Sprintf("\"%s\":\"%s\"", key, model.GetSPVal(key, r.par[key])))
+						buff.WriteString(fmt.Sprintf("\"%s\":\"%s\"", key, model.GetSPVal(key, r.par[k])))
 						//dat[key] = model.GetSPVal(key, r.par[key])
 					}
 				}
-				// if j != (len(keys) - 1) {
-				// 	buff.WriteString(",")
-				// }
+
 			}
 			buff.WriteString("}")
 			if i != (len(res) - 1) {
@@ -438,14 +419,16 @@ func createFKey(keys []string) func(user model.User) []uint64 {
 			f = true
 		}
 	}
+	var buff = make([]byte, 0, 8)
+	out := make([]uint64, 20)
 	return func(user model.User) []uint64 {
 		cnt := 1 // число интересов если они есть
 		if f {
 			cnt = len(user.Interests) // если есть интересы
 		}
-		out := make([]uint64, cnt)
+		out = out[:cnt]
 		for i := 0; i < cnt; i++ {
-			var buff = make([]byte, 0)
+			buff = buff[:0]
 			for _, key := range keys {
 				switch key {
 				case "interests":
@@ -474,7 +457,7 @@ func createFKey(keys []string) func(user model.User) []uint64 {
 				}
 
 			}
-
+			out[i] = 0
 			// запаковка
 			for j := 0; j < len(buff); j++ {
 				out[i] |= uint64(buff[j]) << (uint16(j) * 8)
@@ -485,12 +468,13 @@ func createFKey(keys []string) func(user model.User) []uint64 {
 }
 
 type res struct {
-	par   map[string]uint16
+	par   []uint16
 	count int
 }
 
-func unpackKey(vkey uint64, keys []string) map[string]uint16 {
-	m := make(map[string]uint16)
+func unpackKey(vkey uint64, keys []string, buff []uint16) []uint16 {
+	ret := buff[:0] //make([]uint16, 0)
+	//ret:=shortBuff16.Get().([]uint16)
 	mark := 0
 	for _, k := range keys {
 		switch k {
@@ -498,16 +482,16 @@ func unpackKey(vkey uint64, keys []string) map[string]uint16 {
 			b0 := byte(vkey >> (uint16(mark) * 8))
 			b1 := byte(vkey >> (uint16(mark+1) * 8))
 			val := uint64(b0) | (uint64(b1) << 8)
-			m[k] = uint16(val)
+			ret = append(ret, uint16(val))
 			mark += 2
 		case "status", "sex": // 1 байт
 			b0 := byte(vkey >> (uint16(mark) * 8))
 			//fmt.Println("-------", b0, vkey, mark)
-			m[k] = uint16(b0)
+			ret = append(ret, uint16(b0))
 			mark++
 		}
 	}
-	return m
+	return ret
 }
 
 func toMessG(in map[string]param) []model.Mess {

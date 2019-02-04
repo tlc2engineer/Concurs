@@ -10,6 +10,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -22,11 +24,14 @@ import (
 )
 
 const opt = "options.txt"
-const base = "D:/install/elim/" //"D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
+const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
 const dfname = "data.zip"
 const addr = ":8080"
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	ft := false
 	//----------------------------------------
 	file, err := os.Open(base + opt)
@@ -103,7 +108,7 @@ func main() {
 	*/
 	model.SetUsers()
 	//go clear()
-	debug.SetGCPercent(40)
+	debug.SetGCPercent(50)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
