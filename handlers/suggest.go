@@ -139,8 +139,6 @@ func filterSuggest(account model.User, country uint16, city uint16, filtered []*
 			}
 		}
 	}
-	//fmt.Println("Whos", time.Since(t2))
-	//tmp := make([]tmpS, 0)
 	tmp := buffTmps.Get().([]tmpS)
 	tmp = tmp[:0]
 	sex := account.Sex
@@ -199,7 +197,6 @@ func getSuggestAcc(sugg []*model.User, exclID map[uint32]bool, limit int, city u
 		tmp := make([]*model.User, 0, len(data)/8) // временный срез для id пользователя которые не предпочитает целевой
 		for i := 0; i < len(data)/8; i++ {         // id которые предпочитал пользователь
 			id := uint32(data[i*8]) | uint32(data[i*8+1])<<8 | uint32(data[i*8+2])<<16
-			//	fmt.Println("---", id)
 			_, ok := exclID[uint32(id)] // фильтрация id которые предпочитает целевой пользователь
 			if ok {
 				continue
