@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"Concurs/model"
+	"Concurs/rgbtree"
 	"bytes"
 	"fmt"
 	"sort"
@@ -121,8 +122,9 @@ func suggestOutput(accounts []*model.User, buff *bytes.Buffer) []byte {
 /*filterSuggest - фильтрация пользователей по полу,стране,городу*/
 func filterSuggest(account model.User, country uint16, city uint16, filtered []*model.User) []*model.User {
 	whos := model.GetLikes(account.ID) // лайки данного аккаунта
-	wh := make(map[uint32]bool)        // карта других кто еще лайкал
-	//t2 := time.Now()
+	wh := groupMap.Get().(rgbtree.UTree)
+	wh.Clear()
+	//wh := make(map[uint32]bool) // карта других кто еще лайкал
 	for i := 0; i < len(whos)/8; i++ {
 		var id uint32 // кого лайкал
 		id = uint32(whos[i*8]) | uint32(whos[i*8+1])<<8 | uint32(whos[i*8+2])<<16
@@ -133,9 +135,11 @@ func filterSuggest(account model.User, country uint16, city uint16, filtered []*
 		// добавляем других в карту
 		for i := 0; i < oth.Len(); i++ {
 			o := oth.GetId(i)
-			_, ok := wh[o]
-			if !ok {
-				wh[o] = true
+			if o != account.ID {
+				_, ok := wh.Get(uint64(o))
+				if !ok {
+					wh.Put(uint64(o), 1)
+				}
 			}
 		}
 	}
@@ -143,7 +147,10 @@ func filterSuggest(account model.User, country uint16, city uint16, filtered []*
 	tmp = tmp[:0]
 	sex := account.Sex
 	rec := sex
-	for i := range wh {
+	uintBuff := uintB.Get().([]uint64)
+	tkeys := wh.Keys(uintBuff)
+	for _, ival := range tkeys {
+		i := uint32(ival)
 		if i == account.ID {
 			continue
 		}
@@ -171,19 +178,19 @@ func filterSuggest(account model.User, country uint16, city uint16, filtered []*
 		}
 		tmp = append(tmp, tmpS{s: s, user: acc})
 	}
-	//fmt.Println("sudd", time.Since(t2))
 	sort.Slice(tmp, func(i, j int) bool {
 		if tmp[i].s == tmp[j].s {
 			return tmp[i].user.ID < tmp[j].user.ID
 		}
 		return tmp[i].s > tmp[j].s
 	})
-	//fmt.Println(tmp[0].s, tmp[0].user.ID, tmp[1].s, tmp[1].user.ID)
 	filtered = filtered[:0]
 	for i := range tmp {
 		filtered = append(filtered, tmp[i].user)
 	}
 	buffTmps.Put(tmp)
+	uintB.Put(uintBuff)
+	groupMap.Put(wh)
 	return filtered
 }
 

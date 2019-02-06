@@ -294,15 +294,9 @@ ms:
 	}
 
 	//преобразование карты в срез результатов
-	var results []res
-	var fromBuff bool
-	if tmap.Size() < 10000 { // берем из буффера
-		fromBuff = true
-		results := resBuff.Get().([]res)
-		results = results[:0]
-	} else { //если много то новый
-		results = make([]res, 0, tmap.Size())
-	}
+
+	results := resBuff.Get().([]res)
+	results = results[:0]
 	//-------------------------------------------
 	uintBuff := uintB.Get().([]uint64)
 	tkeys := tmap.Keys(uintBuff)
@@ -368,9 +362,9 @@ ms:
 	uintB.Put(uintBuff)
 	intB.Put(intBuff)
 	//mapBuff.Put(resMap)
-	if fromBuff {
-		resBuff.Put(results)
-	}
+
+	resBuff.Put(results)
+
 	uint16Buff.Put(u16Buf)
 
 }
