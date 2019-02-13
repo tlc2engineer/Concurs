@@ -582,7 +582,10 @@ func createFilterOutput(accounts []*model.User, fields []string, buff *bytes.Buf
 	buff.WriteString(bg)
 	for i, account := range accounts {
 		buff.WriteString("{")
-		buff.WriteString(fmt.Sprintf("\"email\":\"%s\",\"id\":%d", account.Email, account.ID))
+		buff.WriteString("\"email\":\"")
+		buff.WriteString(account.Email)
+		buff.WriteString("\",")
+		buff.WriteString(fmt.Sprintf("\"id\":%d", account.ID))
 		if len(fields) > 0 {
 			buff.WriteString(",")
 		}

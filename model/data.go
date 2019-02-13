@@ -9,6 +9,11 @@ import (
 var WrMutex = new(sync.Mutex)
 var users = make([]User, 0)
 
+/*GetUser - получение  пользователя по номеру*/
+func GetUser(id uint32) *User {
+	return &users[id-1]
+}
+
 /*GetAccounts - Получение списка*/
 func GetAccounts() []User {
 	return users
@@ -19,10 +24,6 @@ func SetUsers() {
 	sort.Slice(users, func(i, j int) bool {
 		return users[i].ID < users[j].ID
 	})
-	//fmt.Println("Сортировано")
-	// //users = make([]User, 0, len(acc)*2) //двойная емкость
-	// users = acc
-
 	for i := range users {
 		id := users[i].ID
 		pacc := &users[i]
@@ -32,8 +33,7 @@ func SetUsers() {
 			PhoneMap[pacc.Phone] = uint32(pacc.ID)
 		}
 	}
-	fmt.Println("Start")
-
+	fmt.Println("END LOAD")
 }
 
 /*GetAccount - получение значения аккаунта*/

@@ -14,9 +14,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/buaazp/fasthttprouter"
@@ -29,6 +29,7 @@ const dfname = "data.zip"
 const addr = ":8080"
 
 func main() {
+	now := time.Now()
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
@@ -60,12 +61,12 @@ func main() {
 	for _, f := range r.File {
 		fnames = append(fnames, f.Name)
 	}
-
 	num := len(fnames)
 	bdata := make([]byte, 0, 20000000)
+	//sdata := make([]byte, 0, 20000000)
 	tmp := make([]byte, 32768)
-	//buff := bytes.NewBuffer(bdata)
-	//users := make([]model.User, 0, num*10000) //num*10000
+	wg := &sync.WaitGroup{}
+	uch := model.AddUsers(wg)
 	for i := 1; i <= num; i++ {
 		//fmt.Println("Номер ", i)
 		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
@@ -87,28 +88,20 @@ func main() {
 					}
 					bdata = append(bdata, tmp...)
 				}
-
-				err = model.AddUsers(bdata)
-				if err != nil {
-					panic(err)
-				}
+				ndata := make([]byte, len(bdata))
+				copy(ndata, bdata)
+				wg.Add(1)
+				uch <- ndata
 			}
 		}
 	}
 	r.Close()
-	/* Генерация sql
-	if gen {
-		fmt.Println("In SQL")
-		err = util.CreateTables(accounts)
-		if err != nil {
-			panic(err)
-		}
-		return
-	}
-	*/
+	close(uch)
+	wg.Wait()
+	fmt.Println(time.Since(now))
 	model.SetUsers()
 	//go clear()
-	debug.SetGCPercent(50)
+	//debug.SetGCPercent(100)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
@@ -199,25 +192,26 @@ func requestPost(ctx *fasthttp.RequestCtx) {
 //-----Очистка---------------
 
 func clear() {
-	var on bool
+	//var on bool
 	ms := &runtime.MemStats{}
-	tick := time.Tick(time.Millisecond * 200)
+	tick := time.Tick(time.Millisecond * 1000)
 	for {
 		select {
 		case <-tick:
 			runtime.ReadMemStats(ms)
-			sys := ms.Sys
-			if sys > 1800000000 && !on {
-				//fmt.Println("------GC Start-----")
-				on = true
-				go func(pon *bool) {
-					select {
-					case <-time.After(time.Millisecond * 2000):
-						*pon = false
-					}
-				}(&on)
-				runtime.GC()
-			}
+			//sys := ms.TotalAlloc
+			fmt.Println(ms.HeapAlloc)
+			// if sys > 1800000000 && !on {
+			// 	//fmt.Println("------GC Start-----")
+			// 	on = true
+			// 	go func(pon *bool) {
+			// 		select {
+			// 		case <-time.After(time.Millisecond * 2000):
+			// 			*pon = false
+			// 		}
+			// 	}(&on)
+			// 	runtime.GC()
+			// }
 		}
 	}
 }
