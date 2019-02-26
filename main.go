@@ -3,6 +3,7 @@ package main
 import (
 	"Concurs/handlers"
 	"Concurs/model"
+	"Concurs/util"
 	"archive/zip"
 	"bufio"
 	"encoding/json"
@@ -24,11 +25,12 @@ import (
 )
 
 const opt = "options.txt"
-const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
+const base = "./data/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
 const dfname = "data.zip"
 const addr = ":8080"
 
 func main() {
+	gen := len(os.Args) > 1 && os.Args[1] == "gen"
 	now := time.Now()
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -78,15 +80,28 @@ func main() {
 					panic("Ошибка чтения")
 				}
 				for {
-					_, err := rc.Read(tmp)
+					n, err := rc.Read(tmp)
 					if err != nil {
 						if err == io.EOF {
-							bdata = append(bdata, tmp...)
+							bdata = append(bdata, tmp[:n]...)
 							break
 						}
 						panic(err)
 					}
 					bdata = append(bdata, tmp...)
+				}
+				// sql флаг
+				if gen {
+					dat := make(map[string][]model.Account)
+					err := json.Unmarshal(bdata, &dat)
+					if err != nil {
+						fmt.Println("json")
+						panic(err)
+					}
+					err = util.CreateTables(dat["accounts"])
+					if err != nil {
+						panic(err)
+					}
 				}
 				ndata := make([]byte, len(bdata))
 				copy(ndata, bdata)

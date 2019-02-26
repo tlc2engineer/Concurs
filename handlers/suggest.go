@@ -109,7 +109,7 @@ func suggestOutput(accounts []*model.User, buff *bytes.Buffer) []byte {
 		if account.FName != 0 {
 			buff.WriteString(fmt.Sprintf("\"fname\":\"%s\",", account.GetFname()))
 		}
-		buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", model.GetSPVal("status", uint16(account.Status))))
+		//buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", model.GetSPVal("status", uint16(account.Status))))
 		buff.WriteString("}")
 		if i != (len(accounts) - 1) {
 			buff.WriteString(",")

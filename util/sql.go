@@ -12,7 +12,9 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const connStr = "user=postgres dbname=concurs sslmode=disable password=m171079 host=localhost"
+const connStr = "user=postgres dbname=concurs sslmode=disable password=m171079 host=192.168.213.66"
+
+var allInterests = make(map[string]int) // глобальная карта интересов
 
 /*CreateTables - заполнение sql*/
 func CreateTables(data []model.Account) error {
@@ -27,8 +29,8 @@ func CreateTables(data []model.Account) error {
 	}
 	likes := make([]tlike, 0)
 	count := 0
-	icount := 0
-	imap := make(map[string]int)
+	icount := len(allInterests)
+	imap := make(map[string]int) // интересы которых нет в глобальной карте
 	values := []interface{}{}
 	insertAcc := `INSERT INTO public.accounts(
 		id, email, fname, sname, phone, sex, country, city, joined, interests, start, finish, status, birth)
@@ -40,11 +42,18 @@ func CreateTables(data []model.Account) error {
 		interests := acc.Interests
 		islice := make([]int, 0)
 		for _, inter := range interests {
-			num, ok := imap[inter]
+			num, ok := imap[inter] // ищем в локальной карте
 			if !ok {
-				imap[inter] = icount
-				islice = append(islice, icount)
-				icount++
+				num, ok := allInterests[inter] // из глобальной карты
+				if ok {
+					islice = append(islice, num) // нашли в глобальной
+				} else { // нет и в глобальной карте
+					imap[inter] = icount         // добавляем в локальную
+					allInterests[inter] = icount // добавляем и в глобальную карту
+					islice = append(islice, icount)
+					icount++
+				}
+
 			} else {
 				islice = append(islice, num)
 			}
