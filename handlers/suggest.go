@@ -18,6 +18,7 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	var limit = -1
 	// получение параметров и верификация
 	errFlag := false
+	var qid int
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
 		k := string(kp)
 		val := string(v)
@@ -42,6 +43,11 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 				errFlag = true
 			}
 		case "query_id":
+			var err error
+			qid, err = strconv.Atoi(val)
+			if err != nil {
+				errFlag = true
+			}
 		default: // неизвестный параметр
 			errFlag = true
 		}
@@ -50,9 +56,25 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
-
+	//------Если есть в кэш----------------
+	memData, ok := getCache(qid) //accCashe[qid]
+	if ok {                      // есть кэш
+		out := make([]*model.User, 0, len(memData))
+		for _, id := range memData {
+			user := model.GetUser(id)
+			out = append(out, user)
+		}
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		bbuff := bbuf.Get().(*bytes.Buffer)
+		ctx.Write(suggestOutput(out, bbuff))
+		bbuf.Put(bbuff)
+		return
+	}
+	//---------------------------------------------
 	var account model.User
-	// находим аккаункт
+	// находим аккаунт
 	account, err := model.GetAccount(uint32(id))
 	// Если нет такого аккаунта
 	if err != nil {
@@ -83,7 +105,13 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	kcountry, _ := model.DataCountry.Get(country)
 
 	sugg := getSuggestAcc(filtered, idMap, limit, kcity, kcountry)
-
+	//-----В кэш--------------
+	toCh := make([]uint32, 0, len(sugg))
+	for _, user := range sugg {
+		toCh = append(toCh, user.ID)
+	}
+	setCache(qid, toCh) //accCashe[qid] = toCh
+	//-------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
@@ -102,14 +130,14 @@ func suggestOutput(accounts []*model.User, buff *bytes.Buffer) []byte {
 	for i, account := range accounts {
 		buff.WriteString("{")
 		buff.WriteString(fmt.Sprintf("\"email\":\"%s\",\"id\":%d,", account.Email, account.ID))
-		buff.WriteString(fmt.Sprintf("\"status\":\"%s\",", model.GetSPVal("status", uint16(account.Status))))
+		//buff.WriteString(fmt.Sprintf("\"status\":\"%s\",", model.GetSPVal("status", uint16(account.Status))))
 		if account.SName != 0 {
 			buff.WriteString(fmt.Sprintf("\"sname\":\"%s\",", account.GetSname()))
 		}
 		if account.FName != 0 {
 			buff.WriteString(fmt.Sprintf("\"fname\":\"%s\",", account.GetFname()))
 		}
-		//buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", model.GetSPVal("status", uint16(account.Status))))
+		buff.WriteString(fmt.Sprintf("\"status\":\"%s\"", model.GetSPVal("status", uint16(account.Status))))
 		buff.WriteString("}")
 		if i != (len(accounts) - 1) {
 			buff.WriteString(",")

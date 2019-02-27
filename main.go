@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -25,10 +24,15 @@ import (
 )
 
 const opt = "options.txt"
-const base = "./data/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
+const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
 const dfname = "data.zip"
 const addr = ":8080"
 
+//--------------------------------------
+var phaseNum int       // номер фазы
+var lastGet time.Time  // последний Get
+var lastPost time.Time // последний Post
+//--------------------------------------
 func main() {
 	gen := len(os.Args) > 1 && os.Args[1] == "gen"
 	now := time.Now()
@@ -115,36 +119,23 @@ func main() {
 	wg.Wait()
 	fmt.Println(time.Since(now))
 	model.SetUsers()
-	//go clear()
+	go clear()
 	//debug.SetGCPercent(100)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
+	router.GET("/service/info/", handlers.Info)
 	log.Fatal(fasthttp.ListenAndServe(addr, router.Handler))
 }
 
-func getData(fname string) ([]model.Account, error) {
-	file, err := os.Open(fname)
-	if err != nil {
-		return nil, err
-	}
-	dat := make(map[string][]model.Account)
-	bts, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(bts, &dat)
-	if err != nil {
-		return nil, err
-	}
-	accounts, ok := dat["accounts"]
-	if !ok {
-		return nil, err
-	}
-	return accounts, nil
-}
-
 func requestGet(ctx *fasthttp.RequestCtx) {
+	if phaseNum == 0 { //первая фаза
+		phaseNum = 1
+	}
+	if phaseNum == 4 { // третья фаза
+		phaseNum = 5
+	}
+	lastGet = time.Now()
 	path := ctx.UserValue("path").(string)
 	args := strings.Split(path, "/")
 	switch len(args) {
@@ -178,6 +169,10 @@ func requestGet(ctx *fasthttp.RequestCtx) {
 }
 
 func requestPost(ctx *fasthttp.RequestCtx) {
+	lastPost = time.Now()
+	if phaseNum == 2 {
+		phaseNum = 3
+	}
 	path := ctx.UserValue("path").(string)
 	args := strings.Split(path, "/")
 	if len(args) != 3 {
@@ -213,20 +208,45 @@ func clear() {
 	for {
 		select {
 		case <-tick:
-			runtime.ReadMemStats(ms)
-			//sys := ms.TotalAlloc
-			fmt.Println(ms.HeapAlloc)
-			// if sys > 1800000000 && !on {
-			// 	//fmt.Println("------GC Start-----")
-			// 	on = true
-			// 	go func(pon *bool) {
-			// 		select {
-			// 		case <-time.After(time.Millisecond * 2000):
-			// 			*pon = false
-			// 		}
-			// 	}(&on)
-			// 	runtime.GC()
-			// }
+			switch phaseNum {
+			case 0: // ожидание
+			case 1: // фаза 1
+				if time.Since(lastGet).Seconds() > 1 { // больше секунды с последнего GET
+					runtime.ReadMemStats(ms)
+					fmt.Println(ms.HeapAlloc)
+					runtime.GC() // очистка
+					runtime.ReadMemStats(ms)
+					fmt.Println("Очистка после первой фазы", ms.HeapAlloc)
+					phaseNum = 2
+					handlers.ClearCashe() // очистка кэш
+				}
+			case 2: // пауза
+			case 3: // вторая фаза
+				if time.Since(lastPost).Seconds() > 1 { // больше секунды с последнего POST
+					runtime.ReadMemStats(ms)
+					fmt.Println(ms.HeapAlloc)
+					runtime.GC() // очистка
+					runtime.ReadMemStats(ms)
+					fmt.Println("Очистка после второй фазы", ms.HeapAlloc)
+					phaseNum = 4
+				}
+			case 4: // пауза
+			case 5:
+			}
+			// 	//runtime.ReadMemStats(ms)
+			// 	//sys := ms.TotalAlloc
+			// 	//fmt.Println(ms.HeapAlloc)
+			// 	// if sys > 1800000000 && !on {
+			// 	// 	//fmt.Println("------GC Start-----")
+			// 	// 	on = true
+			// 	// 	go func(pon *bool) {
+			// 	// 		select {
+			// 	// 		case <-time.After(time.Millisecond * 2000):
+			// 	// 			*pon = false
+			// 	// 		}
+			// 	// 	}(&on)
+			// 	// 	runtime.GC()
+			// 	// }
 		}
 	}
 }

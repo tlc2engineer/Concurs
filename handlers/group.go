@@ -120,7 +120,19 @@ func Group(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-
+	qid := actParams["query_id"].ival
+	//----------------------------------------
+	gdata, ok := getGroupCache(int(qid))
+	if ok { // кэш
+		buff := bbuf.Get().(*bytes.Buffer)
+		bts := createGroupOutput(gdata, keys, buff)
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		ctx.Write(bts)
+		bbuf.Put(buff)
+		return
+	}
 	// группировка
 	// удаление значений
 	fkey := createFKey(keys) // преобразование в ключ поиска
@@ -307,7 +319,7 @@ ms:
 	klen := len(keys)
 	for i := range tkeys {
 		var result res
-		if 10000 > cbuf+klen { // длины хватает
+		if false { // длины хватает
 			result = res{unpackKey(tkeys[i], keys, u16Buf[cbuf:cbuf+klen]), tval[i]}
 		} else {
 			result = res{unpackKey(tkeys[i], keys, make([]uint16, 0, klen)), tval[i]}
@@ -350,7 +362,17 @@ ms:
 	if len(results) > limit {
 		results = results[:limit]
 	}
-	// Вывод
+	//----Добавление в кэш---------------
+	toCache := make([]res, len(results))
+	copy(toCache, results)
+	// for i := range results {
+	// 	ores := results[i]
+	// 	npar := make([]uint16, len(ores.par))
+	// 	copy(npar, ores.par)
+	// 	toCache = append(toCache, res{npar, ores.count})
+	// }
+	setGroupCache(int(qid), toCache)
+	//----Вывод--------------------------
 	buff := bbuf.Get().(*bytes.Buffer)
 	bts := createGroupOutput(results, keys, buff)
 	ctx.SetContentType("application/json")

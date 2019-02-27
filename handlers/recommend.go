@@ -19,6 +19,7 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	// получение параметров и верификация
 	errFlag := false
 	noneFlag := false
+	var qid int
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
 		k := string(kp)
 		val := string(v)
@@ -51,6 +52,11 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 				errFlag = true
 			}
 		case "query_id":
+			var err error
+			qid, err = strconv.Atoi(val)
+			if err != nil {
+				errFlag = true
+			}
 		default: // неизвестный параметр
 			errFlag = true
 		}
@@ -61,6 +67,21 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	}
 	if noneFlag {
 		retZero(ctx)
+		return
+	}
+	memData, ok := getCache(qid) //accCashe[qid]
+	if ok {                      // есть кэш
+		out := make([]*model.User, 0, len(memData))
+		for _, id := range memData {
+			user := model.GetUser(id)
+			out = append(out, user)
+		}
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		bbuff := bbuf.Get().(*bytes.Buffer)
+		ctx.Write(recommendOutput(out, bbuff))
+		bbuf.Put(bbuff)
 		return
 	}
 	//var account model.User
@@ -75,6 +96,13 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	kcity, _ := model.DataCity.Get(city)
 	buff := ubuff.Get().([]*model.User)
 	filtered := model.GetFPointers(uint32(id), kcountry, kcity, limit, buff)
+	//-----В кэш--------------
+	toCh := make([]uint32, 0, len(filtered))
+	for _, user := range filtered {
+		toCh = append(toCh, user.ID)
+	}
+	setCache(qid, toCh) //accCashe[qid] = toCh
+	//-------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
