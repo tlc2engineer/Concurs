@@ -27,10 +27,27 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
+	var err error
 	parMap := make(map[string]sparam)
 	var limit int
 	limit = -1
 	errFlag := false
+	qid, err := strconv.Atoi(string(ctx.QueryArgs().Peek("query_id")))
+	if err != nil {
+		ctx.SetStatusCode(400)
+		return
+	}
+	//---------------Кэш------------------------------
+	if fdata, ok := getFCache(qid); ok {
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		buff := bbuf.Get().(*bytes.Buffer)
+		ctx.Write(createFilterOutput(fdata.users, fdata.fields, buff))
+		bbuf.Put(buff)
+		return
+	}
+	//------------------------------------------------
 	//fasthttp.AcquireRequest
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
 		k := string(kp)
@@ -82,7 +99,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		retZero(ctx)
 		return
 	}
-	err := verifyFilter(parMap)
+	err = verifyFilter(parMap)
 	if err != nil {
 		//fmt.Println("no verify " + err.Error())
 		ctx.SetStatusCode(400)
@@ -404,6 +421,11 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	if len(resp) > limit {
 		resp = resp[:limit]
 	}
+	//--------Запись кэш--------------
+	copyResp := make([]*model.User, len(resp))
+	copy(copyResp, resp)
+	setFCache(qid, fCache{copyResp, fields})
+	//--------------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
 	ctx.SetStatusCode(200)
