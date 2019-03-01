@@ -27,17 +27,18 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 
 /*Filter - фильтрация аккаунтов*/
 func Filter(ctx *fasthttp.RequestCtx) {
+	//tbg := time.Now()
 	var err error
 	parMap := make(map[string]sparam)
 	var limit int
 	limit = -1
 	errFlag := false
+	//---------------Кэш------------------------------
 	qid, err := strconv.Atoi(string(ctx.QueryArgs().Peek("query_id")))
 	if err != nil {
 		ctx.SetStatusCode(400)
 		return
 	}
-	//---------------Кэш------------------------------
 	if fdata, ok := getFCache(qid); ok {
 		ctx.SetContentType("application/json")
 		ctx.Response.Header.Set("charset", "UTF-8")
@@ -157,6 +158,24 @@ func Filter(ctx *fasthttp.RequestCtx) {
 						return acc.FName == 0
 					}
 				}
+			// case "any":
+			// 	nums := make([]uint16, 0)
+			// 	names := strings.Split(par, ",") // имена
+			// 	for _, name := range names {
+			// 		num, ok := model.DataFname.Get(name)
+			// 		if !ok {
+			// 			continue
+			// 		}
+			// 		nums = append(nums, num)
+			// 	}
+			// 	f = func(acc model.User) bool {
+			// 		for _, num := range nums {
+			// 			if acc.FName == num {
+			// 				return true
+			// 			}
+			// 		}
+			// 		return false
+			// 	}
 			default:
 				continue
 			}
@@ -433,6 +452,10 @@ func Filter(ctx *fasthttp.RequestCtx) {
 	ctx.Write(createFilterOutput(resp, fields, buff))
 	bbuf.Put(buff)
 	ubuff.Put(ub)
+	// dt := time.Since(tbg)
+	// if dt.Nanoseconds() > 2000000 {
+	// 	fmt.Println(string(ctx.QueryArgs().QueryString()), dt.Nanoseconds()/1000000)
+	// }
 }
 
 /*verifyFilter - проверка строки запроса*/

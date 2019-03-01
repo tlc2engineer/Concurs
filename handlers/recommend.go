@@ -69,18 +69,13 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		retZero(ctx)
 		return
 	}
-	memData, ok := getCache(qid) //accCashe[qid]
-	if ok {                      // есть кэш
-		out := make([]*model.User, 0, len(memData))
-		for _, id := range memData {
-			user := model.GetUser(id)
-			out = append(out, user)
-		}
+	//accCashe[qid]
+	if memData, ok := getRCache(qid); ok { // есть кэш
 		ctx.SetContentType("application/json")
 		ctx.Response.Header.Set("charset", "UTF-8")
 		ctx.SetStatusCode(200)
 		bbuff := bbuf.Get().(*bytes.Buffer)
-		ctx.Write(recommendOutput(out, bbuff))
+		ctx.Write(recommendOutput(memData, bbuff))
 		bbuf.Put(bbuff)
 		return
 	}
@@ -97,11 +92,14 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	buff := ubuff.Get().([]*model.User)
 	filtered := model.GetFPointers(uint32(id), kcountry, kcity, limit, buff)
 	//-----В кэш--------------
-	toCh := make([]uint32, 0, len(filtered))
-	for _, user := range filtered {
-		toCh = append(toCh, user.ID)
-	}
-	setCache(qid, toCh) //accCashe[qid] = toCh
+	// toCh := make([]uint32, 0, len(filtered))
+	// for _, user := range filtered {
+	// 	toCh = append(toCh, user.ID)
+	// }
+	// setCache(qid, toCh) //accCashe[qid] = toCh
+	toCh := make([]*model.User, len(filtered))
+	copy(toCh, filtered)
+	setRCache(qid, toCh)
 	//-------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
