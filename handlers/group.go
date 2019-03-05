@@ -42,7 +42,7 @@ type groupRes struct {
 
 /*Group - группировка*/
 func Group(ctx *fasthttp.RequestCtx) {
-
+	//	tbg := time.Now()
 	var keys []string
 	errFlag := false
 	limit := -1
@@ -388,7 +388,10 @@ ms:
 	resBuff.Put(results)
 
 	uint16Buff.Put(u16Buf)
-
+	// dt := time.Since(tbg)
+	// if dt.Nanoseconds() > 5000000 {
+	// 	fmt.Println(string(ctx.QueryArgs().QueryString()), dt.Nanoseconds()/1000000)
+	// }
 }
 
 /*createGroupOutput -вывод данных*/

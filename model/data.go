@@ -121,3 +121,11 @@ func IsMailExist(mail string) bool {
 	_, exist := MailMap[mail]
 	return exist
 }
+
+/*init - инициализация*/
+func init() {
+	// инициализация матрицы интересов/
+	for i := range commonInt {
+		commonInt[i] = make([]bool, 100)
+	}
+}

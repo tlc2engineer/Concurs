@@ -11,6 +11,7 @@ RUN mkdir /tmp/data
 
 
 # Копируем наш исходный main.go внутрь контейнера, в папку go/src/dumb
+RUN go get github.com/lib/pq
 RUN go get github.com/valyala/fasthttp
 RUN go get github.com/buaazp/fasthttprouter
 RUN go get github.com/buger/jsonparser
