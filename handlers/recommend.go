@@ -13,6 +13,7 @@ var enParam = []string{"country", "city"}
 
 /*Recommend - рекомендуемые id*/
 func Recommend(ctx *fasthttp.RequestCtx, id int) {
+	//tbg := time.Now()
 	city := ""
 	country := ""
 	var limit = -1
@@ -108,6 +109,10 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	ctx.Write(recommendOutput(filtered, bbuff))
 	ubuff.Put(buff)
 	bbuf.Put(bbuff)
+	//dt := time.Since(tbg)
+	// if dt.Nanoseconds() > 5000000 {
+	// 	fmt.Println(string(ctx.QueryArgs().QueryString()), dt.Nanoseconds()/1000000)
+	// }
 }
 
 func recommendOutput(accounts []*model.User, buff *bytes.Buffer) []byte {

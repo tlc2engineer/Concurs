@@ -441,9 +441,9 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		resp = resp[:limit]
 	}
 	//--------Запись кэш--------------
-	copyResp := make([]*model.User, len(resp))
-	copy(copyResp, resp)
-	setFCache(qid, fCache{copyResp, fields})
+	// copyResp := make([]*model.User, len(resp))
+	// copy(copyResp, resp)
+	// setFCache(qid, fCache{copyResp, fields})
 	//--------------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")

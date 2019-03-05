@@ -171,11 +171,13 @@ func (acc User) Suggest(oth *User) float64 {
 	olikes := GetLikes(oid)
 	ret := 0.0
 	m := 0
-	for i := 0; i < len(likes)/8; i++ {
+	lenLikes := len(likes) / 8
+	lenOlikes := len(olikes) / 8
+	for i := 0; i < lenLikes; i++ {
 		maddr := i * 8
 		mid := uint32(likes[maddr]) | uint32(likes[maddr+1])<<8 | uint32(likes[maddr+2])<<16
 		//like := LikeUnPack(likes[i*8 : i*8+8])
-		for j := m; j < len(olikes)/8; j++ {
+		for j := m; j < lenOlikes; j++ {
 			addr := j * 8
 			id := uint32(olikes[addr]) | uint32(olikes[addr+1])<<8 | uint32(olikes[addr+2])<<16
 			if mid == id {

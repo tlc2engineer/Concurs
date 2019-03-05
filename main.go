@@ -23,10 +23,23 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+/* Режим работы
+1 - тест с локальной базы ./data/
+2 - тест с компьютера на работе полной базы
+3 - тест с дома полной базы
+4 - образ Docker
+*/
+const mode = 2
 const opt = "options.txt"
-const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
+
+//const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
+const baseLocal = "./data/"
+const baseWork = "D:/install/elim/"
+const baseHome = "/home/sergey/Загрузки/data/"
+const baseDocker = "/tmp/data/"
 const dfname = "data.zip"
-const addr = ":8080"
+const addrTest = ":8080"
+const addrDocker = ":80"
 
 //--------------------------------------
 var phaseNum int       // номер фазы
@@ -34,6 +47,23 @@ var lastGet time.Time  // последний Get
 var lastPost time.Time // последний Post
 //--------------------------------------
 func main() {
+	var base string
+	var addr string
+	switch mode {
+	case 1:
+		base = baseLocal
+		addr = addrTest
+	case 2:
+		base = baseWork
+		addr = addrTest
+	case 3:
+		base = baseHome
+		addr = addrTest
+	case 4:
+		base = baseDocker
+		addr = addrDocker
+	}
+	//---------------------------
 	gen := len(os.Args) > 1 && os.Args[1] == "gen"
 	now := time.Now()
 	go func() {
@@ -120,7 +150,7 @@ func main() {
 	fmt.Println(time.Since(now))
 	model.SetUsers()
 	go clear()
-	//debug.SetGCPercent(100)
+	//	debug.SetGCPercent(70)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)

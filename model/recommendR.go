@@ -12,6 +12,12 @@ var bUbuff = sync.Pool{
 	},
 }
 
+var recSortPool = sync.Pool{
+	New: func() interface{} {
+		return make([]recSortedEl, 0, 20000)
+	},
+}
+
 /*GetFPointers - возвращает список указактелей рекомендованных пользователей*/
 func GetFPointers(id uint32, country uint16, city uint16, limit int, out []*User) []*User {
 	// indData := selRecFilter(id, country, city) // фильтрация по городу выгоднее
@@ -100,32 +106,65 @@ func GetFPointers(id uint32, country uint16, city uint16, limit int, out []*User
 				tmp = append(tmp, acc)
 			}
 		}
-		sort.Slice(tmp, func(i, j int) bool {
-			f := tmp[i]
-			s := tmp[j]
-			commf := f.GetCommInt(*acc)
-			comms := s.GetCommInt(*acc)
-			if commf != comms {
-				return commf > comms // у кого больше общих интересов
+		sortedTmps := recSortPool.Get().([]recSortedEl)
+		sortedTmps = sortedTmps[:len(tmp)]
+		//sortedTmps := make([]recSortedEl, len(tmp))
+		for i := range tmp {
+			u := tmp[i]
+			sortedTmps[i].commonInt = u.GetCommInt(*acc)
+			sortedTmps[i].dt = math.Abs(float64(int64(acc.Birth) - int64(u.Birth)))
+			sortedTmps[i].u = u
+			// sortedTmps = append(sortedTmps, recSortedEl{
+			// 	commonInt: u.GetCommInt(*acc),
+			// 	dt:        math.Abs(float64(int64(acc.Birth) - int64(u.Birth))),
+			// 	u:         u,
+			// })
+		}
+		sort.Slice(sortedTmps, func(i, j int) bool {
+			f := sortedTmps[i]
+			s := sortedTmps[j]
+			if f.commonInt != s.commonInt {
+				return f.commonInt > s.commonInt
 			}
-			// по разнице в возрасте
-			agef := math.Abs(float64(int64(acc.Birth) - int64(f.Birth)))
-			ages := math.Abs(float64(int64(acc.Birth) - int64(s.Birth)))
-			if agef != ages {
-				return agef < ages
+			if f.dt != s.dt {
+				return f.dt < s.dt
 			}
-			// по id
-			return f.ID < s.ID
-
+			return f.u.ID < s.u.ID
 		})
-		if len(tmp) <= limit {
-			out = append(out, tmp...)
-		} else {
-			out = append(out, tmp[:limit]...)
+		// sort.Slice(tmp, func(i, j int) bool {
+		// 	f := tmp[i]
+		// 	s := tmp[j]
+		// 	commf := f.GetCommInt(*acc)
+		// 	comms := s.GetCommInt(*acc)
+		// 	if commf != comms {
+		// 		return commf > comms // у кого больше общих интересов
+		// 	}
+		// 	// по разнице в возрасте
+		// 	agef := math.Abs(float64(int64(acc.Birth) - int64(f.Birth)))
+		// 	ages := math.Abs(float64(int64(acc.Birth) - int64(s.Birth)))
+		// 	if agef != ages {
+		// 		return agef < ages
+		// 	}
+		// 	// по id
+		// 	return f.ID < s.ID
+
+		// })
+		for i := range sortedTmps {
+			out = append(out, sortedTmps[i].u)
+			if len(out) >= limit {
+				recSortPool.Put(sortedTmps)
+				return out[:limit]
+			}
 		}
-		if len(out) >= limit {
-			return out[:limit]
-		}
+		recSortPool.Put(sortedTmps)
+		// if len(tmp) <= limit {
+		// 	out = append(out, tmp...)
+		// } else {
+		// 	out = append(out, tmp[:limit]...)
+		// }
+		// if len(out) >= limit {
+		// 	return out[:limit]
+		// }
 	}
 	return out
 }
@@ -209,4 +248,10 @@ next:
 		out = out[:limit]
 	}
 	return out
+}
+
+type recSortedEl struct {
+	commonInt int
+	dt        float64
+	u         *User
 }
