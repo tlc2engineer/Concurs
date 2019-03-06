@@ -26,21 +26,40 @@ func (data IndSData) Len() int {
 
 /*Remove - удаление id из списка*/
 func (data IndSData) Remove(id uint32) IndData {
-	for i := range data {
-		if id == data[i] {
-			data = data[:i+copy(data[i:], data[i+1:])]
-			break
-		}
+	n := searchInSorted(data, id)
+	if n == -1 {
+		return data
 	}
-	return IndSData(data)
+	// for i := range data {
+	// 	if id == data[i] {
+	// 		data = data[:i+copy(data[i:], data[i+1:])]
+	// 		break
+	// 	}
+	// }
+	data = data[:n+copy(data[n:], data[n+1:])]
+	return data
 }
 
 /*Add - добавление id в список*/
 func (data IndSData) Add(id uint32) IndData {
-	// if data.IsExists(id) {
-	// 	return data
-	// }
 	ln := len(data)
+
+	// if ln > 0 && id > data[ln-1] { // добавляем в конец
+	// 	data = append(data, id)
+	// } else { // вставка
+	// 	n := searchInsPlace(data, id)
+	// 	switch n {
+	// 	case -2: // элемент найден
+	// 		return data
+	// 	case -1: // вставка в конец
+	// 		data = append(data, id)
+	// 	default: // вставка элемента на позицию n
+	// 		data = append(data, 0)
+	// 		copy(data[n+1:], data[n:]) // вставляем id перед i
+	// 		data[n] = id
+	// 	}
+	// }
+
 	if ln > 0 && id < data[ln-1] { // если больше последнего элемента добавляем в конец иначе вставка
 		i := ln - 1 // начиная с последнего элемента
 		for i >= 0 && id < data[i] {
@@ -152,6 +171,8 @@ func (is IndexSlice) In(key uint32, id uint32) bool {
 func (is IndexSlice) Add(key uint32, id uint32) bool {
 	data, ok := is[key]
 	if !ok {
+		// idata := make([]uint32, 0, 10000)
+		// idata = append(idata, id)
 		is[key] = IndSData([]uint32{id})
 		return false
 	}

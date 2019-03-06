@@ -27,6 +27,9 @@ var LPTime int64
 
 var zeroOut []byte
 
+// На запись
+var mutex = model.WrMutex
+
 func init() {
 	ttime, _ := time.Parse(time.RFC3339, "1950-01-01T00:00:00Z")
 	LBtime = ttime.Unix()
@@ -46,7 +49,6 @@ func init() {
 
 /*Add - добавление нового аккаунта*/
 func Add(ctx *fasthttp.RequestCtx) {
-	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
 

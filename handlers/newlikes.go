@@ -9,7 +9,6 @@ import (
 
 /*AddLikes - новые предпочтения*/
 func AddLikes(ctx *fasthttp.RequestCtx) {
-	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
 	if !ctx.QueryArgs().Has(queryParam) {

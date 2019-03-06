@@ -14,6 +14,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -150,7 +151,7 @@ func main() {
 	fmt.Println(time.Since(now))
 	model.SetUsers()
 	go clear()
-	//	debug.SetGCPercent(70)
+	debug.SetGCPercent(50)
 	router := fasthttprouter.New()
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)

@@ -15,7 +15,6 @@ const queryParam = "query_id"
 
 /*Update - обновление аккаунта*/
 func Update(ctx *fasthttp.RequestCtx, id int) {
-	mutex := model.WrMutex
 	mutex.Lock()
 	defer mutex.Unlock()
 	if !ctx.QueryArgs().Has("query_id") {
