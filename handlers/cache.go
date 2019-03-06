@@ -78,3 +78,8 @@ type fCache struct {
 	users  []*model.User
 	fields []string
 }
+
+/*makeHasRec - hash код для suggest recommend*/
+func makeHasRec(id uint32, country uint16, city uint16) uint64 {
+	return uint64(id)<<32 | uint64(country)<<16 | uint64(city)
+}
