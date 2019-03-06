@@ -44,37 +44,37 @@ func (data IndSData) Remove(id uint32) IndData {
 func (data IndSData) Add(id uint32) IndData {
 	ln := len(data)
 
-	// if ln > 0 && id > data[ln-1] { // добавляем в конец
-	// 	data = append(data, id)
-	// } else { // вставка
-	// 	n := searchInsPlace(data, id)
-	// 	switch n {
-	// 	case -2: // элемент найден
-	// 		return data
-	// 	case -1: // вставка в конец
-	// 		data = append(data, id)
-	// 	default: // вставка элемента на позицию n
-	// 		data = append(data, 0)
-	// 		copy(data[n+1:], data[n:]) // вставляем id перед i
-	// 		data[n] = id
-	// 	}
-	// }
-
-	if ln > 0 && id < data[ln-1] { // если больше последнего элемента добавляем в конец иначе вставка
-		i := ln - 1 // начиная с последнего элемента
-		for i >= 0 && id < data[i] {
-			i--
-		}
-		if i >= 0 && id == data[i] { // если тот же элемент
-			return data
-		}
-		//вставка
-		data = append(data, 0)
-		copy(data[i+2:], data[i+1:]) // вставляем id перед i
-		data[i+1] = id
-	} else {
+	if ln > 0 && id > data[ln-1] { // добавляем в конец
 		data = append(data, id)
+	} else { // вставка
+		n := searchInsPlace(data, id)
+		switch n {
+		case -2: // элемент найден
+			return data
+		case -1: // вставка в конец
+			data = append(data, id)
+		default: // вставка элемента на позицию n
+			data = append(data, 0)
+			copy(data[n+1:], data[n:]) // вставляем id перед i
+			data[n] = id
+		}
 	}
+
+	// if ln > 0 && id < data[ln-1] { // если больше последнего элемента добавляем в конец иначе вставка
+	// 	i := ln - 1 // начиная с последнего элемента
+	// 	for i >= 0 && id < data[i] {
+	// 		i--
+	// 	}
+	// 	if i >= 0 && id == data[i] { // если тот же элемент
+	// 		return data
+	// 	}
+	// 	//вставка
+	// 	data = append(data, 0)
+	// 	copy(data[i+2:], data[i+1:]) // вставляем id перед i
+	// 	data[i+1] = id
+	// } else {
+	// 	data = append(data, id)
+	// }
 	return data
 }
 
