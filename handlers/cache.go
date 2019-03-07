@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var filterCache = make(map[int]fCache)
+var filterCache = make(map[string]fCache)
 var suggCashe = make(map[uint64][]uint32)
 var groupCache = make(map[string][]res)
 var recCache = make(map[uint64][]*model.User)
@@ -18,23 +18,23 @@ var rmu = &sync.Mutex{}
 
 /*ClearCashe - очистка cashe*/
 func ClearCashe() {
-	filterCache = make(map[int]fCache)
+	filterCache = make(map[string]fCache)
 	suggCashe = make(map[uint64][]uint32)
 	groupCache = make(map[string][]res)
 	recCache = make(map[uint64][]*model.User)
 }
 
-func getFCache(qid int) (fCache, bool) {
+func getFCache(key string) (fCache, bool) {
 	muf.Lock()
 	defer muf.Unlock()
-	data, ok := filterCache[qid]
+	data, ok := filterCache[key]
 	return data, ok
 }
 
-func setFCache(qid int, data fCache) {
+func setFCache(key string, data fCache) {
 	muf.Lock()
 	defer muf.Unlock()
-	filterCache[qid] = data
+	filterCache[key] = data
 }
 
 func getRCache(qid uint64) ([]*model.User, bool) {
@@ -116,5 +116,24 @@ func makeGroupHash(keys []string, params map[string]groupParam) string {
 			bb.WriteString(v.sval)
 		}
 	}
+	return bb.String()
+}
+
+func makeFilterHash(params map[string]fparam, limit int) string {
+	dataHash := make([]byte, 200)
+	bb := bytes.NewBuffer(dataHash)
+	bb.Reset()
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := params[k]
+		bb.WriteString(k)
+		bb.WriteString(v.pred)
+		bb.WriteString(v.par)
+	}
+	bb.WriteByte(byte(limit))
 	return bb.String()
 }

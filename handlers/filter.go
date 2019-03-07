@@ -11,12 +11,12 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type sparam struct {
+type fparam struct {
 	par  string
 	pred string
 }
 
-var sparams = []string{"email", "fname", "sname", "phone", "sex", "country", "city", "status", "interests", "birth", "premium", "likes"}
+var fparams = []string{"email", "fname", "sname", "phone", "sex", "country", "city", "status", "interests", "birth", "premium", "likes"}
 
 var predicts = []string{"any", "contains", "domain", "lt", "gt", "eq", "neq", "code", "null", "now", "starts", "year"}
 
@@ -29,25 +29,17 @@ var legalPred = map[string][]string{"email": []string{"lt", "gt", "domain"}, "fn
 func Filter(ctx *fasthttp.RequestCtx) {
 	//tbg := time.Now()
 	var err error
-	parMap := make(map[string]sparam)
+	parMap := make(map[string]fparam)
 	var limit int
 	limit = -1
 	errFlag := false
 	//---------------Кэш------------------------------
-	qid, err := strconv.Atoi(string(ctx.QueryArgs().Peek("query_id")))
+	_, err = strconv.Atoi(string(ctx.QueryArgs().Peek("query_id")))
 	if err != nil {
 		ctx.SetStatusCode(400)
 		return
 	}
-	if fdata, ok := getFCache(qid); ok {
-		ctx.SetContentType("application/json")
-		ctx.Response.Header.Set("charset", "UTF-8")
-		ctx.SetStatusCode(200)
-		buff := bbuf.Get().(*bytes.Buffer)
-		ctx.Write(createFilterOutput(fdata.users, fdata.fields, buff))
-		bbuf.Put(buff)
-		return
-	}
+
 	//------------------------------------------------
 	//fasthttp.AcquireRequest
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
@@ -66,10 +58,10 @@ func Filter(ctx *fasthttp.RequestCtx) {
 			return
 		}
 		find := false
-		for _, spar := range sparams {
+		for _, spar := range fparams {
 			if strings.HasPrefix(k, spar) {
 				find = true
-				sp := sparam{}
+				sp := fparam{}
 				sp.par = prm                  // значение параметра
 				if strings.Contains(k, "_") { // если есть предикат
 					args := strings.Split(k, "_")
@@ -106,7 +98,16 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-
+	hash := makeFilterHash(parMap, limit)
+	if fdata, ok := getFCache(hash); ok {
+		ctx.SetContentType("application/json")
+		ctx.Response.Header.Set("charset", "UTF-8")
+		ctx.SetStatusCode(200)
+		buff := bbuf.Get().(*bytes.Buffer)
+		ctx.Write(createFilterOutput(fdata.users, fdata.fields, buff))
+		bbuf.Put(buff)
+		return
+	}
 	filtFunc := make([]func(model.User) bool, 0) // список функций фильтрации
 	var f func(model.User) bool                  // промежуточная переменная
 	// установка фильтров
@@ -441,9 +442,9 @@ func Filter(ctx *fasthttp.RequestCtx) {
 		resp = resp[:limit]
 	}
 	//--------Запись кэш--------------
-	// copyResp := make([]*model.User, len(resp))
-	// copy(copyResp, resp)
-	// setFCache(qid, fCache{copyResp, fields})
+	copyResp := make([]*model.User, len(resp))
+	copy(copyResp, resp)
+	setFCache(hash, fCache{copyResp, fields})
 	//--------------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")
@@ -459,7 +460,7 @@ func Filter(ctx *fasthttp.RequestCtx) {
 }
 
 /*verifyFilter - проверка строки запроса*/
-func verifyFilter(params map[string]sparam) error {
+func verifyFilter(params map[string]fparam) error {
 	for k, v := range params {
 		par := v.par
 		pred := v.pred
@@ -535,7 +536,7 @@ func verifyFilter(params map[string]sparam) error {
 }
 
 /*filterAcc - фильтр строчного параметра*/
-func filterAcc(account model.User, pname string, parMap map[string]sparam) bool {
+func filterAcc(account model.User, pname string, parMap map[string]fparam) bool {
 	par := parMap[pname].par
 	// если параметр не контролируется
 	if par == "" {
@@ -590,7 +591,7 @@ func filterAcc(account model.User, pname string, parMap map[string]sparam) bool 
 }
 
 /*filterLikes - фильтр лайков*/
-func filterLikes(account model.User, pname string, parMap map[string]sparam) bool {
+func filterLikes(account model.User, pname string, parMap map[string]fparam) bool {
 	par := parMap[pname].par
 	if par == "" {
 		return true
@@ -690,7 +691,7 @@ func createFilterOutput(accounts []*model.User, fields []string, buff *bytes.Buf
 	return buff.Bytes() //bTs[:buff.Len()]
 }
 
-func toMess(m map[string]sparam) []model.Mess {
+func toMess(m map[string]fparam) []model.Mess {
 	out := make([]model.Mess, len(m))
 	for k, v := range m {
 		mess := model.Mess{Par: k, Val: v.par, Act: v.pred}
