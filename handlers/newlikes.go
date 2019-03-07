@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"Concurs/model"
-	"encoding/json"
+	"bytes"
+	"fmt"
+
+	"github.com/buger/jsonparser"
 
 	"github.com/valyala/fasthttp"
 )
@@ -16,16 +19,40 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	data := ctx.PostBody()
-	vmap := make(map[string][]Temp)
-	err := json.Unmarshal(data, &vmap)
+	likeData, _, _, err := jsonparser.Get(data, ("likes"))
 	if err != nil {
-		//fmt.Println("Ошибка распаковки")
 		ctx.SetStatusCode(400)
+		fmt.Println("Not likes")
 		return
 	}
-	likesT, ok := vmap["likes"]
-	if !ok {
-		//fmt.Println("Ошибка распаковки 1")
+	likesT := likesTempB.Get().([]Temp)
+	likesT = likesT[:0]
+	defer likesTempB.Put(likesT)
+	errFlag := false
+	jsonparser.ArrayEach(likeData, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+		//"likee":22727,"ts":1492927159,"liker":21102
+		if err != nil {
+			errFlag = true
+		}
+		if !errFlag {
+			likee, err := jsonparser.GetInt(value, "likee") //int64(getInt(value, "likee"))
+			if err != nil {
+				errFlag = true
+			}
+			ts, err := jsonparser.GetInt(value, "ts")
+			if err != nil {
+				errFlag = true
+			}
+			liker, err := jsonparser.GetInt(value, "liker")
+			if err != nil {
+				errFlag = true
+			}
+			// fmt.Println(string(value))
+			// fmt.Println(likee, ts, liker)
+			likesT = append(likesT, Temp{liker, likee, float64(ts)})
+		}
+	})
+	if errFlag {
 		ctx.SetStatusCode(400)
 		return
 	}
@@ -51,13 +78,7 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 		id := like.Liker
 		id2 := like.Likee
 		ts := like.Ts
-		for {
-			data = model.GetLikes(uint32(id))
-			if len(data) != 1 {
-				break
-			}
-			//time.Sleep(time.Millisecond * 50)
-		}
+		data = model.GetLikes(uint32(id))
 		// добавление
 		found := false
 		for i := 0; i < len(data)/8; i++ {
@@ -77,11 +98,12 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 				found = true
 				l := model.Like{Ts: float64(ts), ID: id2, Num: 1}
 				p := model.LikePack(l)
-				ndata := make([]byte, len(data)+8)
-				copy(ndata[:addr], data[:addr])
-				copy(ndata[addr+8:], data[addr:])
-				copy(ndata[addr:], p)
-				data = ndata
+				//ndata := make([]byte, len(data)+8)
+				data = append(data, make([]byte, 8)...) // добавляем 8 байт
+				//copy(ndata[:addr], data[:addr])
+				copy(data[addr+8:], data[addr:])
+				copy(data[addr:], p)
+
 				model.AddWho(uint32(id), l)
 				break
 			}
@@ -118,4 +140,27 @@ type Temp struct {
 	Liker int64   `json:"liker"`
 	Likee int64   `json:"likee"`
 	Ts    float64 `json:"ts"`
+}
+
+/*getInt - получение целого*/
+func getInt(val []byte, name string) uint32 {
+	fbyte := []byte(name)
+	fbyte = append(fbyte, 34, 58) //":
+	ind := bytes.Index(val, fbyte)
+	if ind == -1 {
+		return 0
+	}
+	i := ind + 3 + len(name)
+	beg := i
+	var out int
+	for val[i] >= 48 && val[i] < 59 {
+		i++
+	}
+	end := i
+	mul := 1
+	for i := end - 1; i >= beg; i-- {
+		out += int(val[i]-48) * mul
+		mul = mul * 10
+	}
+	return uint32(out)
 }

@@ -64,3 +64,9 @@ var uint16Buff = sync.Pool{
 		return make([]uint16, 10000)
 	},
 }
+
+var likesTempB = sync.Pool{
+	New: func() interface{} {
+		return make([]Temp, 200)
+	},
+}
