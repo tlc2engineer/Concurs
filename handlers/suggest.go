@@ -56,9 +56,21 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
+	//------город и страна----------------------
+	cityVal, ok := model.DataCity.Get(city)
+	if !ok {
+		retZero(ctx)
+		return
+	}
+	countryVal, ok := model.DataCountry.Get(country)
+	if !ok {
+		retZero(ctx)
+		return
+	}
 	//------Если есть в кэш----------------
-	memData, ok := getCache(qid) //accCashe[qid]
-	if ok {                      // есть кэш
+	hash := makeHasRec(uint32(id), countryVal, cityVal, limit)
+	memData, ok := getCache(hash) //accCashe[qid]
+	if ok {                       // есть кэш
 		out := make([]*model.User, 0, len(memData))
 		for _, id := range memData {
 			user := model.GetUser(id)
@@ -81,17 +93,6 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(404)
 		return
 	}
-	// фильтрация по стране  полу городу
-	cityVal, ok := model.DataCity.Get(city)
-	if !ok {
-		retZero(ctx)
-		return
-	}
-	countryVal, ok := model.DataCountry.Get(country)
-	if !ok {
-		retZero(ctx)
-		return
-	}
 	filtered := ubuff.Get().([]*model.User)
 	filtered = filterSuggest(account, countryVal, cityVal, filtered)
 
@@ -110,7 +111,7 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 	for _, user := range sugg {
 		toCh = append(toCh, user.ID)
 	}
-	setCache(qid, toCh) //accCashe[qid] = toCh
+	setCache(hash, toCh) //accCashe[qid] = toCh
 	//-------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")

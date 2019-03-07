@@ -70,8 +70,10 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		retZero(ctx)
 		return
 	}
-	//accCashe[qid]
-	if memData, ok := getRCache(qid); ok { // есть кэш
+	kcountry, _ := model.DataCountry.Get(country)
+	kcity, _ := model.DataCity.Get(city)
+	hash := makeHasRec(uint32(id), kcountry, kcity, limit)
+	if memData, ok := getRCache(hash); ok { // есть кэш
 		ctx.SetContentType("application/json")
 		ctx.Response.Header.Set("charset", "UTF-8")
 		ctx.SetStatusCode(200)
@@ -88,8 +90,6 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(404)
 		return
 	}
-	kcountry, _ := model.DataCountry.Get(country)
-	kcity, _ := model.DataCity.Get(city)
 	buff := ubuff.Get().([]*model.User)
 	filtered := model.GetFPointers(uint32(id), kcountry, kcity, limit, buff)
 	//-----В кэш--------------
@@ -100,7 +100,7 @@ func Recommend(ctx *fasthttp.RequestCtx, id int) {
 	// setCache(qid, toCh) //accCashe[qid] = toCh
 	toCh := make([]*model.User, len(filtered))
 	copy(toCh, filtered)
-	setRCache(qid, toCh)
+	setRCache(hash, toCh)
 	//-------------------------
 	ctx.SetContentType("application/json")
 	ctx.Response.Header.Set("charset", "UTF-8")

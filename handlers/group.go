@@ -19,13 +19,13 @@ const st = 1 // строковой
 const dt = 2 // дата
 
 var keysLegal = []string{"city", "country", "sex", "interests", "status"}
-var params = map[string]param{"order": param{tp: it}, "limit": param{tp: it}, "likes": param{tp: it}, "birth": param{tp: it}, "sex": param{tp: st}, "joined": param{tp: it}, "status": param{tp: st},
-	"interests": param{tp: st}, "city": param{tp: st}, "country": param{tp: st}}
+var params = map[string]groupParam{"order": groupParam{tp: it}, "limit": groupParam{tp: it}, "likes": groupParam{tp: it}, "birth": groupParam{tp: it}, "sex": groupParam{tp: st}, "joined": groupParam{tp: it}, "status": groupParam{tp: st},
+	"interests": groupParam{tp: st}, "city": groupParam{tp: st}, "country": groupParam{tp: st}}
 var loc, _ = time.LoadLocation("Europe/London")
 
 //var resMap = make(map[uint64]int, 10000) // карта группировки
 
-type param struct {
+type groupParam struct {
 	tp   int
 	sval string
 	ival int64
@@ -47,7 +47,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 	errFlag := false
 	limit := -1
 	order := 1
-	actParams := map[string]param{}
+	actParams := map[string]groupParam{}
 
 	ctx.QueryArgs().VisitAll(func(kp, v []byte) {
 		k := string(kp)
@@ -75,7 +75,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 					errFlag = true
 				}
 			}
-			actParams[k] = param{sval: val, tp: st}
+			actParams[k] = groupParam{sval: val, tp: st}
 		case "limit":
 			num, err := strconv.ParseInt(val, 10, 0)
 			if err != nil {
@@ -85,7 +85,7 @@ func Group(ctx *fasthttp.RequestCtx) {
 			if limit <= 0 {
 				errFlag = true
 			}
-			actParams[k] = param{ival: int64(limit), tp: it}
+			actParams[k] = groupParam{ival: int64(limit), tp: it}
 		case "order":
 			num, err := strconv.ParseInt(val, 10, 0)
 			if err != nil {
@@ -95,21 +95,21 @@ func Group(ctx *fasthttp.RequestCtx) {
 			if order != -1 && order != 1 {
 				errFlag = true
 			}
-			actParams[k] = param{ival: int64(order), tp: it}
+			actParams[k] = groupParam{ival: int64(order), tp: it}
 		case "likes", "birth", "joined", "query_id":
 			num, err := strconv.ParseInt(val, 10, 0)
 			if err != nil {
 				errFlag = true
 			}
 			data := int(num)
-			actParams[k] = param{ival: int64(data), tp: it}
+			actParams[k] = groupParam{ival: int64(data), tp: it}
 		case "sex":
 			if val != "m" && val != "f" {
 				errFlag = true
 			}
-			actParams[k] = param{sval: val, tp: st}
+			actParams[k] = groupParam{sval: val, tp: st}
 		case "country", "city", "interests", "status":
-			actParams[k] = param{sval: val, tp: st}
+			actParams[k] = groupParam{sval: val, tp: st}
 		default:
 			errFlag = true
 
@@ -120,9 +120,10 @@ func Group(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	qid := actParams["query_id"].ival
+	//qid := actParams["query_id"].ival
 	//----------------------------------------
-	gdata, ok := getGroupCache(int(qid))
+	hash := makeGroupHash(keys, actParams)
+	gdata, ok := getGroupCache(hash)
 	if ok { // кэш
 		buff := bbuf.Get().(*bytes.Buffer)
 		bts := createGroupOutput(gdata, keys, buff)
@@ -371,7 +372,7 @@ ms:
 	// 	copy(npar, ores.par)
 	// 	toCache = append(toCache, res{npar, ores.count})
 	// }
-	setGroupCache(int(qid), toCache)
+	setGroupCache(hash, toCache)
 	//----Вывод--------------------------
 	buff := bbuf.Get().(*bytes.Buffer)
 	bts := createGroupOutput(results, keys, buff)
@@ -513,7 +514,7 @@ func unpackKey(vkey uint64, keys []string, buff []uint16) []uint16 {
 	return ret
 }
 
-func toMessG(in map[string]param) []model.Mess {
+func toMessG(in map[string]groupParam) []model.Mess {
 	out := make([]model.Mess, 0, len(in))
 	for k, v := range in {
 		var val string
