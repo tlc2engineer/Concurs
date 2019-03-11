@@ -9,7 +9,7 @@ import (
 type Like struct {
 	Ts  float64 `json:"ts"`
 	ID  int64   `json:"id"`
-	Num uint8
+	Num uint8   `json:"-"`
 }
 
 /*LikePack - Упаковка Like*/

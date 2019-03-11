@@ -51,14 +51,24 @@ func init() {
 func Add(ctx *fasthttp.RequestCtx) {
 	mutex.Lock()
 	defer mutex.Unlock()
-
 	if !ctx.QueryArgs().Has("query_id") {
 		ctx.SetStatusCode(400)
 		return
 	}
 	data := ctx.PostBody()
 	acc := new(model.Account)
-	err := json.Unmarshal(data, acc)
+	//acc := accBuff.Get().(*model.Account)
+
+	likes := likeBuff.Get().([]model.Like)
+	likes = likes[:0]
+	// defer func() {
+	// 	acc.Likes = nil
+	// 	accBuff.Put(acc)
+	// }()
+	defer likeBuff.Put(likes)
+	acc.Likes = likes
+	err := acc.UnmarshalJSON(data)
+	//err := json.Unmarshal(data, acc)
 	if err != nil {
 		//fmt.Println("Ошибка распаковки", err)
 		ctx.SetStatusCode(400)
@@ -70,7 +80,8 @@ func Add(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	likes := acc.Likes
+
+	likes = acc.Likes
 	likes = model.NormLikes(likes)
 	acc.Likes = likes
 	sort.Slice(likes, func(i, j int) bool {
