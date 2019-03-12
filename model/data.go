@@ -95,11 +95,12 @@ func GetAccPhone(phone string) int {
 
 /*GetAccountPointer - получение указателя на аккаунт*/
 func GetAccountPointer(id uint32) (*User, error) {
-	accp, ok := MainMap[id]
+	//user:=GetUser(id)
+	user, ok := MainMap[id]
 	if !ok {
 		return &User{}, fmt.Errorf("Нет аккаунта")
 	}
-	return accp, nil
+	return user, nil
 }
 
 /*UpdateEmail - обновить карту email*/

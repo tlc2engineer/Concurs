@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"Concurs/model"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/buger/jsonparser"
 
 	"github.com/valyala/fasthttp"
 )
@@ -29,13 +30,13 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		return
 	}
 	data := ctx.PostBody()
-	dat := make(map[string]interface{})
-	err = json.Unmarshal(data, &dat)
-	if err != nil {
-		//fmt.Println(err)
-		ctx.SetStatusCode(400)
-		return
-	}
+	// dat := make(map[string]interface{})
+	// err = json.Unmarshal(data, &dat)
+	// if err != nil {
+	// 	//fmt.Println(err)
+	// 	ctx.SetStatusCode(400)
+	// 	return
+	// }
 	//fmt.Println("Данные", dat)
 	vmap := make(map[string]bool)
 	// переменные
@@ -43,168 +44,303 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 	var birth, joined, start, finish int64
 	var likes []model.Like
 	var interests []string
-
-	verify := func(dat map[string]interface{}) error {
-		for k, v := range dat {
-			switch k {
-			case "email":
-				email, err = verSPar(v, 100)
+	err = jsonparser.ObjectEach(data, func(bkey []byte, v []byte, dataTp jsonparser.ValueType, offset int) error {
+		key, err := jsonparser.ParseString(bkey)
+		switch key {
+		case "email":
+			email, _ = jsonparser.ParseString(v) //value
+			if len(email) > 100 {
+				return err
+			}
+			if model.IsMailExist(email) {
+				return fmt.Errorf("Такой mail уже есть")
+			}
+			if !strings.Contains(email, "@") {
+				return fmt.Errorf("Неправильный mail")
+			}
+		case "phone":
+			phone, _ = jsonparser.ParseString(v)
+			if len(phone) > 100 {
+				return err
+			}
+		case "fname":
+			fname, _ = jsonparser.ParseString(v)
+			if len(fname) > 50 {
+				return err
+			}
+		case "sname":
+			sname, _ = jsonparser.ParseString(v)
+			if len(sname) > 50 {
+				return err
+			}
+		case "sex":
+			sex, _ = jsonparser.ParseString(v)
+			if sex != "m" && sex != "f" {
+				return fmt.Errorf("Неправильный пол " + sex)
+			}
+		case "country":
+			country, _ = jsonparser.ParseString(v)
+			if len(country) > 50 {
+				return err
+			}
+			//paccount.Country = country
+		case "city":
+			city, _ = jsonparser.ParseString(v)
+			if len(city) > 50 {
+				return err
+			}
+		case "status":
+			status, _ = jsonparser.ParseString(v) //value
+			switch status {
+			case "свободны":
+			case "заняты":
+			case "всё сложно":
+			default:
+				return fmt.Errorf("Непонятный статус")
+			}
+		case "interests":
+			interests = make([]string, 0)
+			errFlag := false
+			jsonparser.ArrayEach(v, func(value1 []byte, dataType jsonparser.ValueType, offset int, err error) {
 				if err != nil {
-					return err
+					errFlag = true
 				}
-				if model.IsMailExist(email) {
-					return fmt.Errorf("Такой mail уже есть")
+				interes, _ := jsonparser.ParseString(value1)
+				if len(interes) > 100 {
+					errFlag = true
 				}
-				if !strings.Contains(email, "@") {
-					return fmt.Errorf("Неправильный mail")
-				}
-			case "phone":
-				phone, err = verSPar(v, 100)
-				if err != nil {
-					return err
-				}
-				//model.UpdatePhone(phone, paccount.Phone)
-			case "fname":
-				fname, err = verSPar(v, 50)
-				if err != nil {
-					return err
-				}
-				//paccount.FName = fname
-			case "sname":
-				sname, err = verSPar(v, 50)
-				if err != nil {
-					return err
-				}
-				//paccount.SName = sname
-			case "sex":
-				sex, err = verSPar(v, 1)
-				if err != nil {
-					return err
-				}
-				if sex != "m" && sex != "f" {
-					return fmt.Errorf("Неправильный пол " + sex)
-				}
-			case "birth":
-				birth, err = verifyDPar(v, LBtime, HBtime)
-				if err != nil {
-					return err
-				}
-				//paccount.Birth = birth
-			case "country":
-				country, err = verSPar(v, 50)
-				if err != nil {
-					return err
-				}
-				//paccount.Country = country
-			case "city":
-				city, err = verSPar(v, 50)
-				if err != nil {
-					return err
-				}
-				//paccount.City = city
-			case "joined":
-				joined, err = verifyDPar(v, LRTime, HRTime)
-				if err != nil {
-					return err
-				}
-				//paccount.Joined = joined
-			case "status":
-				status, err = verSPar(v, 50)
-				if err != nil {
-					return err
-				}
-				switch status {
-				case "свободны":
-				case "заняты":
-				case "всё сложно":
+				interests = append(interests, interes)
+			})
+			//fmt.Println(interests)
+			if errFlag {
+				return fmt.Errorf("Неправильное значение интересов")
+			}
+		case "premium":
+			checkCount := 0
+			jsonparser.ObjectEach(v, func(bkey1 []byte, v1 []byte, dataTp jsonparser.ValueType, offset int) error {
+				switch string(bkey1) {
+				case "start":
+					start, err = jsonparser.ParseInt(v1)
+					if err != nil || int64(start) < LPTime {
+						return fmt.Errorf("Неправильное значение премиум   %v", v)
+					}
+					checkCount++
+				case "finish":
+					finish, err = jsonparser.ParseInt(v1)
+					if err != nil || int64(finish) < LPTime {
+						return fmt.Errorf("Неправильное значение премиум   %v", v)
+					}
+					checkCount++
 				default:
-					return fmt.Errorf("Непонятный статус")
+					return fmt.Errorf("Неправильное поле")
 				}
-				//paccount.Status = status
-			case "interests":
-				dat, ok := v.([]interface{})
-				if !ok {
-					return fmt.Errorf("Неправильное значение интересов %v", v)
+				return nil
+			})
+			if checkCount != 2 {
+				return fmt.Errorf("Неправильное значение premium")
+			}
+		case "birth":
+			birth, err = jsonparser.ParseInt(v)
+			//birth, err = verifyDPar(v, LBtime, HBtime)
+			if err != nil {
+				return err
+			}
+			if int64(birth) < LBtime || int64(birth) > HBtime {
+				return fmt.Errorf("Неправильное предела даты")
+			}
+		case "joined":
+			joined, err = jsonparser.ParseInt(v)
+			if err != nil {
+				return err
+			}
+			if int64(joined) < LRTime || int64(joined) > HRTime {
+				return fmt.Errorf("Неправильное предела даты")
+			}
+		case "likes":
+			likes = make([]model.Like, 0)
+			errFlag := false
+			jsonparser.ArrayEach(v, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+				ts, err := jsonparser.GetInt(value, "ts")
+				if err != nil {
+					errFlag = true
 				}
-				interests = make([]string, 0)
-				for i := range dat {
-					s, ok := dat[i].(string)
+				id, err := jsonparser.GetInt(value, "id")
+				if err != nil {
+					errFlag = true
+				}
+				if !errFlag {
+					likes = append(likes, model.Like{Ts: float64(ts), ID: id, Num: 1})
+				}
+			})
+			if errFlag {
+				return fmt.Errorf("Неправильное преобразование likes")
+			}
+		}
+		vmap[key] = true
+		return nil
+	})
+	/*
+		verify := func(dat map[string]interface{}) error {
+			for k, v := range dat {
+				switch k {
+				case "email":
+					email, err = verSPar(v, 100)
+					if err != nil {
+						return err
+					}
+					if model.IsMailExist(email) {
+						return fmt.Errorf("Такой mail уже есть")
+					}
+					if !strings.Contains(email, "@") {
+						return fmt.Errorf("Неправильный mail")
+					}
+				case "phone":
+					phone, err = verSPar(v, 100)
+					if err != nil {
+						return err
+					}
+					//model.UpdatePhone(phone, paccount.Phone)
+				case "fname":
+					fname, err = verSPar(v, 50)
+					if err != nil {
+						return err
+					}
+					//paccount.FName = fname
+				case "sname":
+					sname, err = verSPar(v, 50)
+					if err != nil {
+						return err
+					}
+					//paccount.SName = sname
+				case "sex":
+					sex, err = verSPar(v, 1)
+					if err != nil {
+						return err
+					}
+					if sex != "m" && sex != "f" {
+						return fmt.Errorf("Неправильный пол " + sex)
+					}
+				case "birth":
+					birth, err = verifyDPar(v, LBtime, HBtime)
+					if err != nil {
+						return err
+					}
+					//paccount.Birth = birth
+				case "country":
+					country, err = verSPar(v, 50)
+					if err != nil {
+						return err
+					}
+					//paccount.Country = country
+				case "city":
+					city, err = verSPar(v, 50)
+					if err != nil {
+						return err
+					}
+					//paccount.City = city
+				case "joined":
+					joined, err = verifyDPar(v, LRTime, HRTime)
+					if err != nil {
+						return err
+					}
+					//paccount.Joined = joined
+				case "status":
+					status, err = verSPar(v, 50)
+					if err != nil {
+						return err
+					}
+					switch status {
+					case "свободны":
+					case "заняты":
+					case "всё сложно":
+					default:
+						return fmt.Errorf("Непонятный статус")
+					}
+					//paccount.Status = status
+				case "interests":
+					dat, ok := v.([]interface{})
 					if !ok {
 						return fmt.Errorf("Неправильное значение интересов %v", v)
 					}
-					if len(s) > 100 {
-						return fmt.Errorf("Превышение длины интереса")
+					interests = make([]string, 0)
+					for i := range dat {
+						s, ok := dat[i].(string)
+						if !ok {
+							return fmt.Errorf("Неправильное значение интересов %v", v)
+						}
+						if len(s) > 100 {
+							return fmt.Errorf("Превышение длины интереса")
+						}
+						interests = append(interests, s)
 					}
-					interests = append(interests, s)
-				}
-			case "premium":
-				dat, ok := v.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("Неправильное значение премиум 1  %v", v)
-				}
-				sval, ok := dat["start"]
-				if !ok {
-					return fmt.Errorf("Неправильное значение премиум 2  %v", v)
-				}
-				fval, ok := dat["finish"]
-				if !ok {
-					return fmt.Errorf("Неправильное значение премиум 3  %v", v)
-				}
+				case "premium":
+					dat, ok := v.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("Неправильное значение премиум 1  %v", v)
+					}
+					sval, ok := dat["start"]
+					if !ok {
+						return fmt.Errorf("Неправильное значение премиум 2  %v", v)
+					}
+					fval, ok := dat["finish"]
+					if !ok {
+						return fmt.Errorf("Неправильное значение премиум 3  %v", v)
+					}
 
-				tstart, ok := sval.(float64)
-				if !ok {
-					return fmt.Errorf("Неправильное значение премиум 4  %v", v)
-				}
-				tfinish, ok := fval.(float64)
-				if !ok {
-					return fmt.Errorf("Неправильное значение премиум 5  %v", v)
-				}
+					tstart, ok := sval.(float64)
+					if !ok {
+						return fmt.Errorf("Неправильное значение премиум 4  %v", v)
+					}
+					tfinish, ok := fval.(float64)
+					if !ok {
+						return fmt.Errorf("Неправильное значение премиум 5  %v", v)
+					}
 
-				start = int64(tstart)
-				finish = int64(tfinish)
+					start = int64(tstart)
+					finish = int64(tfinish)
 
-				if start < LPTime {
-					return fmt.Errorf("Неправильное значение премиум 6")
-				}
-				if finish < LPTime {
-					return fmt.Errorf("Неправильное значение премиум 7")
-				}
-			case "likes":
-				out := make([]model.Like, 0)
-				likesMap, ok := v.([]map[string]interface{})
-				if !ok {
-					return fmt.Errorf("Неправильное преобразование likes")
-				}
-				for _, like := range likesMap {
-					idv, ok := like["id"]
+					if start < LPTime {
+						return fmt.Errorf("Неправильное значение премиум 6")
+					}
+					if finish < LPTime {
+						return fmt.Errorf("Неправильное значение премиум 7")
+					}
+				case "likes":
+					out := make([]model.Like, 0)
+					likesMap, ok := v.([]map[string]interface{})
 					if !ok {
 						return fmt.Errorf("Неправильное преобразование likes")
 					}
-					id, ok := idv.(int64)
-					if !ok {
-						return fmt.Errorf("Неправильное преобразование likes")
+					for _, like := range likesMap {
+						idv, ok := like["id"]
+						if !ok {
+							return fmt.Errorf("Неправильное преобразование likes")
+						}
+						id, ok := idv.(int64)
+						if !ok {
+							return fmt.Errorf("Неправильное преобразование likes")
+						}
+						tsv, ok := like["ts"]
+						if !ok {
+							return fmt.Errorf("Неправильное преобразование likes")
+						}
+						ts, ok := tsv.(float64)
+						if !ok {
+							return fmt.Errorf("Неправильное преобразование likes")
+						}
+						nlike := model.Like{Ts: ts, ID: id}
+						out = append(out, nlike)
 					}
-					tsv, ok := like["ts"]
-					if !ok {
-						return fmt.Errorf("Неправильное преобразование likes")
-					}
-					ts, ok := tsv.(float64)
-					if !ok {
-						return fmt.Errorf("Неправильное преобразование likes")
-					}
-					nlike := model.Like{Ts: ts, ID: id}
-					out = append(out, nlike)
-				}
-				likes = out
-			default:
-				return fmt.Errorf("Неизвестное поле")
+					likes = out
+				default:
+					return fmt.Errorf("Неизвестное поле")
 
+				}
+				vmap[k] = true
 			}
-			vmap[k] = true
+			return nil
 		}
-		return nil
-	}
-	err = verify(dat)
+		err = verify(dat)*/
 	if err != nil {
 		//fmt.Println(err)
 		ctx.SetStatusCode(400)

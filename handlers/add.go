@@ -58,7 +58,6 @@ func Add(ctx *fasthttp.RequestCtx) {
 	data := ctx.PostBody()
 	acc := new(model.Account)
 	//acc := accBuff.Get().(*model.Account)
-
 	likes := likeBuff.Get().([]model.Like)
 	likes = likes[:0]
 	// defer func() {
