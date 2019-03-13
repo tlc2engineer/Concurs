@@ -22,48 +22,67 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 	likes.Likes = likesT
 	defer likesTempB.Put(likesT)
 	err := likes.UnmarshalJSON(data)
-	//likeData, _, _, err := jsonparser.Get(data, ("likes"))
-	//likesT := likes.Likes
 	if err != nil {
 		ctx.SetStatusCode(400)
-		//fmt.Println("Not likes")
 		return
 	}
 	likesT = likes.Likes
-	//fmt.Println(cap(likesT), likesT)
-	//fmt.Println(likesT, cap(likesT))
-	//fmt.Println("likes", len(likesT))
-	// likesT := likesTempB.Get().([]lTemp)
-	// likesT = likesT[:0]
-	// defer likesTempB.Put(likesT)
-	// errFlag := false
-	// jsonparser.ArrayEach(likeData, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-	// 	//"likee":22727,"ts":1492927159,"liker":21102
-	// 	if err != nil {
-	// 		errFlag = true
-	// 	}
-	// 	if !errFlag {
-	// 		likee, err := jsonparser.GetInt(value, "likee") //int64(getInt(value, "likee"))
-	// 		if err != nil {
-	// 			errFlag = true
-	// 		}
-	// 		ts, err := jsonparser.GetInt(value, "ts")
-	// 		if err != nil {
-	// 			errFlag = true
-	// 		}
-	// 		liker, err := jsonparser.GetInt(value, "liker")
-	// 		if err != nil {
-	// 			errFlag = true
-	// 		}
-	// 		// fmt.Println(string(value))
-	// 		// fmt.Println(likee, ts, liker)
-	// 		likesT = append(likesT, lTemp{liker, likee, float64(ts)})
-	// 	}
-	// })
-	// if errFlag {
+	//likeData, _, _, err := jsonparser.Get(data, ("likes"))
+	//likesT := likes.Likes
+	// if err != nil {
 	// 	ctx.SetStatusCode(400)
+	// 	//fmt.Println("Not likes")
 	// 	return
 	// }
+	//likesT = likes.Likes
+	// fmt.Println(cap(likesT), likesT)
+	// fmt.Println(likesT, cap(likesT))
+	// fmt.Println("likes", len(likesT))
+	/*
+		likesT := likesTempB.Get().([]LTemp)
+		likesT = likesT[:0]
+		defer likesTempB.Put(likesT)
+		errFlag := false
+		var likee, liker, ts int64
+		jsonparser.ArrayEach(likeData, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
+			//"likee":22727,"ts":1492927159,"liker":21102
+			if errFlag {
+				return
+			}
+			err = jsonparser.ObjectEach(value, func(bkey []byte, v []byte, dataTp jsonparser.ValueType, offset int) error {
+				key, _ := jsonparser.ParseString(bkey)
+				switch key {
+				case "likee":
+					likee, err = jsonparser.ParseInt(v)
+					if err != nil {
+						return err
+					}
+				case "liker":
+					liker, err = jsonparser.ParseInt(v)
+					if err != nil {
+						return err
+					}
+				case "ts":
+					ts, err = jsonparser.ParseInt(v)
+					if err != nil {
+						return err
+					}
+				default:
+					return fmt.Errorf("Не тот заголовок")
+				}
+				return nil
+
+			})
+			if err != nil {
+				errFlag = true
+			} else {
+				likesT = append(likesT, LTemp{Liker: liker, Likee: likee, Ts: ts})
+			}
+		})
+		if errFlag {
+			ctx.SetStatusCode(400)
+			return
+		}*/
 	// проверка что есть такие like id
 	for _, like := range likesT {
 		//fmt.Println(like)

@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"sort"
+	"sync"
 )
 
 /*IndData - Данные индекса*/
@@ -197,6 +198,67 @@ func (is IndexSlice) GetAll(key uint32) (IndData, error) {
 		return nil, fmt.Errorf("Нет ключа")
 	}
 	return data, nil
+}
+
+/*Update - обновление индекса для id*/
+func (is IndexSlice) Update(id uint32, old uint32, nee uint32, wg *sync.WaitGroup) {
+	if old == nee {
+		return
+	}
+	wg.Add(2)
+	var odata, ndata IndData
+	odata, _ = is[old]
+	go func() {
+		odata = odata.Remove(id)
+		wg.Done()
+	}()
+	ndata, ok := is[nee]
+	go func() {
+		if ok {
+			ndata = ndata.Add(id)
+		} else {
+			ndata = IndSData([]uint32{id})
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+	is[old] = odata
+	is[nee] = ndata
+}
+
+/*UpdateMany - изменение многих значений (для интересов)*/
+func (is IndexSlice) UpdateMany(id uint32, old []uint16, nee []uint16, wg *sync.WaitGroup, lock *sync.Mutex) {
+	for _, o := range old { // цикл удаления
+		wg.Add(1)
+		lock.Lock()
+		r, _ := is[uint32(o)]
+		lock.Unlock()
+		go func(data IndData, n uint32) { // удаление из индекса
+			data = data.Remove(id)
+			lock.Lock()
+			is[n] = data
+			lock.Unlock()
+			wg.Done()
+		}(r, uint32(o))
+	}
+	for _, ne := range nee { // цикл добавления
+		lock.Lock()
+		add, ok := is[uint32(ne)]
+		lock.Unlock()
+		if ok {
+			wg.Add(1)
+			go func(data IndData, n uint32) {
+				data = data.Add(id)
+				lock.Lock()
+				is[n] = data
+				lock.Unlock()
+				wg.Done()
+			}(add, uint32(ne))
+		} else {
+			is[uint32(ne)] = IndSData([]uint32{id})
+		}
+	}
+	wg.Wait() // ожидание окончания всех операций
 }
 
 /*IndexMData - индексные данные на основе карты*/

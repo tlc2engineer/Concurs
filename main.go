@@ -156,7 +156,13 @@ func main() {
 	router.GET("/accounts/*path", requestGet)
 	router.POST("/accounts/*path", requestPost)
 	router.GET("/service/info/", handlers.Info)
-	log.Fatal(fasthttp.ListenAndServe(addr, router.Handler))
+	// сервер
+	s := &fasthttp.Server{
+		Handler: router.Handler,
+		Name:    "Concurs",
+		//	Concurrency: 8,
+	}
+	log.Fatal(s.ListenAndServe(addr))
 }
 
 func requestGet(ctx *fasthttp.RequestCtx) {

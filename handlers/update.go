@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/buger/jsonparser"
@@ -13,6 +14,8 @@ import (
 )
 
 const queryParam = "query_id"
+
+var wg = &sync.WaitGroup{}
 
 /*Update - обновление аккаунта*/
 func Update(ctx *fasthttp.RequestCtx, id int) {
@@ -179,176 +182,22 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		vmap[key] = true
 		return nil
 	})
-	/*
-		verify := func(dat map[string]interface{}) error {
-			for k, v := range dat {
-				switch k {
-				case "email":
-					email, err = verSPar(v, 100)
-					if err != nil {
-						return err
-					}
-					if model.IsMailExist(email) {
-						return fmt.Errorf("Такой mail уже есть")
-					}
-					if !strings.Contains(email, "@") {
-						return fmt.Errorf("Неправильный mail")
-					}
-				case "phone":
-					phone, err = verSPar(v, 100)
-					if err != nil {
-						return err
-					}
-					//model.UpdatePhone(phone, paccount.Phone)
-				case "fname":
-					fname, err = verSPar(v, 50)
-					if err != nil {
-						return err
-					}
-					//paccount.FName = fname
-				case "sname":
-					sname, err = verSPar(v, 50)
-					if err != nil {
-						return err
-					}
-					//paccount.SName = sname
-				case "sex":
-					sex, err = verSPar(v, 1)
-					if err != nil {
-						return err
-					}
-					if sex != "m" && sex != "f" {
-						return fmt.Errorf("Неправильный пол " + sex)
-					}
-				case "birth":
-					birth, err = verifyDPar(v, LBtime, HBtime)
-					if err != nil {
-						return err
-					}
-					//paccount.Birth = birth
-				case "country":
-					country, err = verSPar(v, 50)
-					if err != nil {
-						return err
-					}
-					//paccount.Country = country
-				case "city":
-					city, err = verSPar(v, 50)
-					if err != nil {
-						return err
-					}
-					//paccount.City = city
-				case "joined":
-					joined, err = verifyDPar(v, LRTime, HRTime)
-					if err != nil {
-						return err
-					}
-					//paccount.Joined = joined
-				case "status":
-					status, err = verSPar(v, 50)
-					if err != nil {
-						return err
-					}
-					switch status {
-					case "свободны":
-					case "заняты":
-					case "всё сложно":
-					default:
-						return fmt.Errorf("Непонятный статус")
-					}
-					//paccount.Status = status
-				case "interests":
-					dat, ok := v.([]interface{})
-					if !ok {
-						return fmt.Errorf("Неправильное значение интересов %v", v)
-					}
-					interests = make([]string, 0)
-					for i := range dat {
-						s, ok := dat[i].(string)
-						if !ok {
-							return fmt.Errorf("Неправильное значение интересов %v", v)
-						}
-						if len(s) > 100 {
-							return fmt.Errorf("Превышение длины интереса")
-						}
-						interests = append(interests, s)
-					}
-				case "premium":
-					dat, ok := v.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("Неправильное значение премиум 1  %v", v)
-					}
-					sval, ok := dat["start"]
-					if !ok {
-						return fmt.Errorf("Неправильное значение премиум 2  %v", v)
-					}
-					fval, ok := dat["finish"]
-					if !ok {
-						return fmt.Errorf("Неправильное значение премиум 3  %v", v)
-					}
-
-					tstart, ok := sval.(float64)
-					if !ok {
-						return fmt.Errorf("Неправильное значение премиум 4  %v", v)
-					}
-					tfinish, ok := fval.(float64)
-					if !ok {
-						return fmt.Errorf("Неправильное значение премиум 5  %v", v)
-					}
-
-					start = int64(tstart)
-					finish = int64(tfinish)
-
-					if start < LPTime {
-						return fmt.Errorf("Неправильное значение премиум 6")
-					}
-					if finish < LPTime {
-						return fmt.Errorf("Неправильное значение премиум 7")
-					}
-				case "likes":
-					out := make([]model.Like, 0)
-					likesMap, ok := v.([]map[string]interface{})
-					if !ok {
-						return fmt.Errorf("Неправильное преобразование likes")
-					}
-					for _, like := range likesMap {
-						idv, ok := like["id"]
-						if !ok {
-							return fmt.Errorf("Неправильное преобразование likes")
-						}
-						id, ok := idv.(int64)
-						if !ok {
-							return fmt.Errorf("Неправильное преобразование likes")
-						}
-						tsv, ok := like["ts"]
-						if !ok {
-							return fmt.Errorf("Неправильное преобразование likes")
-						}
-						ts, ok := tsv.(float64)
-						if !ok {
-							return fmt.Errorf("Неправильное преобразование likes")
-						}
-						nlike := model.Like{Ts: ts, ID: id}
-						out = append(out, nlike)
-					}
-					likes = out
-				default:
-					return fmt.Errorf("Неизвестное поле")
-
-				}
-				vmap[k] = true
-			}
-			return nil
-		}
-		err = verify(dat)*/
 	if err != nil {
 		//fmt.Println(err)
 		ctx.SetStatusCode(400)
 		return
 	}
+	wg.Add(2)
 	// удаление старого индекса
-	model.DeleteGIndex(*paccount)
-	model.RemRecIndex(*paccount)
+	go func() {
+		model.DeleteGIndex(*paccount)
+		wg.Done()
+	}()
+	go func() {
+		model.RemRecIndex(*paccount)
+		wg.Done()
+	}()
+	wg.Wait()
 	// Присвоение значений
 	for k := range vmap {
 		switch k {
@@ -386,7 +235,6 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Birth = uint32(birth)
 			model.UpdateBYear(uint32(paccount.ID), uint32(oldYear), uint32(newYear))
 		case "country":
-
 			model.UpdICountry(paccount.ID, paccount.Country, country) // обновить индекс
 			paccount.Country = model.DataCountry.GetOrAdd(country)
 		case "city":
@@ -441,8 +289,16 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 
 		}
 	}
-	model.AddGIndex(*paccount)
-	model.AddRecIndex(*paccount)
+	wg.Add(2)
+	func() {
+		model.AddGIndex(*paccount)
+		wg.Done()
+	}()
+	func() {
+		model.AddRecIndex(*paccount)
+		wg.Done()
+	}()
+	wg.Wait()
 	ctx.SetStatusCode(202) // все в норме
 	ctx.Write([]byte(""))
 	return
