@@ -202,10 +202,14 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 	for k := range vmap {
 		switch k {
 		case "email":
-			oldMail := paccount.Email
-			paccount.Email = email
-			model.UpdateEmail(email, oldMail)
-			model.UpdateDomainInd(paccount.ID, oldMail, email)
+			wg.Add(1)
+			go func() {
+				oldMail := paccount.Email
+				paccount.Email = email
+				model.UpdateEmail(email, oldMail)
+				model.UpdateDomainInd(paccount.ID, oldMail, email)
+				wg.Done()
+			}()
 		case "phone":
 			old := paccount.Phone
 			oldCode := model.GetCode(old)
@@ -214,12 +218,20 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			model.UpdatePhone(phone, old)
 			model.UpdCode(paccount.ID, oldCode, newCode)
 		case "fname":
-			model.UpdFname(paccount.ID, paccount.FName, fname)
-			paccount.SetFname(fname)
+			wg.Add(1)
+			go func() {
+				model.UpdFname(paccount.ID, paccount.FName, fname)
+				paccount.SetFname(fname)
+				wg.Done()
+			}()
 		case "sname":
-			oldName := paccount.SName
-			paccount.SetSname(sname)
-			model.UpdSname(paccount.ID, oldName, sname)
+			wg.Add(1)
+			go func() {
+				oldName := paccount.SName
+				paccount.SetSname(sname)
+				model.UpdSname(paccount.ID, oldName, sname)
+				wg.Done()
+			}()
 		case "sex":
 			bsex := false
 			if sex == "m" {
@@ -235,11 +247,19 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Birth = uint32(birth)
 			model.UpdateBYear(uint32(paccount.ID), uint32(oldYear), uint32(newYear))
 		case "country":
-			model.UpdICountry(paccount.ID, paccount.Country, country) // обновить индекс
-			paccount.Country = model.DataCountry.GetOrAdd(country)
+			wg.Add(1)
+			go func() {
+				model.UpdICountry(paccount.ID, paccount.Country, country) // обновить индекс
+				paccount.Country = model.DataCountry.GetOrAdd(country)
+				wg.Done()
+			}()
 		case "city":
-			model.UpdICity(paccount.ID, paccount.City, city) // обновить индекс
-			paccount.City = model.DataCity.GetOrAdd(city)
+			wg.Add(1)
+			go func() {
+				model.UpdICity(paccount.ID, paccount.City, city) // обновить индекс
+				paccount.City = model.DataCity.GetOrAdd(city)
+				wg.Done()
+			}()
 		case "joined":
 			oldBirth := paccount.Joined
 			oldDate := time.Unix(int64(oldBirth), 0).In(loc)
@@ -251,44 +271,53 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		case "status":
 			paccount.Status = model.DataStatus[status]
 		case "interests":
-			oldI := paccount.Interests                   // старые интересы
-			model.UpdInter(paccount.ID, oldI, interests) // обновить индекс
-			paccount.Interests = model.GetInterests(interests)
+			wg.Add(1)
+			go func() {
+				oldI := paccount.Interests                   // старые интересы
+				model.UpdInter(paccount.ID, oldI, interests) // обновить индекс
+				paccount.Interests = model.GetInterests(interests)
+				wg.Done()
+			}()
 		case "premium":
 			paccount.Start = uint32(start)
 			paccount.Finish = uint32(finish)
 		case "likes":
-			likes := model.NormLikes(likes) // нормируем
-			sort.Slice(likes, func(i, j int) bool {
-				return likes[i].ID < likes[j].ID
-			})
-			model.SetLikes(uint32(id), model.PackLSlice(likes))
-			model.AddWhos(uint32(id), likes)
-			//Удалить старые лайки которых уже нет!
-			oldLikes := model.GetLikes(uint32(id)) // старые лайки
-			ids := make([]uint32, 0)               // список несовпадающих лайков
-			for i := 0; i < len(oldLikes)/8; i++ {
-				var idLike uint32 // старый id
-				idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
-				found := false
-				for _, like := range likes {
-					if uint32(like.ID) == idLike {
-						found = true
-						break
+			wg.Add(1)
+			go func() {
+				likes := model.NormLikes(likes) // нормируем
+				sort.Slice(likes, func(i, j int) bool {
+					return likes[i].ID < likes[j].ID
+				})
+				model.SetLikes(uint32(id), model.PackLSlice(likes))
+				model.AddWhos(uint32(id), likes)
+				//Удалить старые лайки которых уже нет!
+				oldLikes := model.GetLikes(uint32(id)) // старые лайки
+				ids := make([]uint32, 0)               // список несовпадающих лайков
+				for i := 0; i < len(oldLikes)/8; i++ {
+					var idLike uint32 // старый id
+					idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
+					found := false
+					for _, like := range likes {
+						if uint32(like.ID) == idLike {
+							found = true
+							break
+						}
+					}
+					if !found {
+						ids = append(ids, idLike)
 					}
 				}
-				if !found {
-					ids = append(ids, idLike)
+				// Цикл по номерам которые уже не предпочитает
+				for _, tid := range ids {
+					data, _ := model.GetWho(tid) // кто лайкал данный id
+					model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
 				}
-			}
-			// Цикл по номерам которые уже не предпочитает
-			for _, tid := range ids {
-				data, _ := model.GetWho(tid) // кто лайкал данный id
-				model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
-			}
+				wg.Done()
+			}()
 
 		}
 	}
+	wg.Wait()
 	wg.Add(2)
 	func() {
 		model.AddGIndex(*paccount)

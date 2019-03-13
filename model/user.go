@@ -35,17 +35,29 @@ type User struct {
 	Finish    uint32
 }
 
+var convWg = &sync.WaitGroup{}
+
 /*Conv - конвертация*/
 func Conv(acc Account) User {
+	convWg.Add(5)
 	//-------------------------------------
 	country := DataCountry.GetOrAdd(acc.Country)
-	countryMap.Add(uint32(country), uint32(acc.ID))
+	go func() {
+		countryMap.Add(uint32(country), uint32(acc.ID))
+		convWg.Done()
+	}()
 	//--------------------------------------
 	city := DataCity.GetOrAdd(acc.City)
-	cityMap.Add(uint32(city), uint32(acc.ID))
+	go func() {
+		cityMap.Add(uint32(city), uint32(acc.ID))
+		convWg.Done()
+	}()
 	//---------------------------------------
 	fnameV := DataFname.GetOrAdd(acc.FName)
-	fnameMap.Add(uint32(fnameV), uint32(acc.ID))
+	go func() {
+		fnameMap.Add(uint32(fnameV), uint32(acc.ID))
+		convWg.Done()
+	}()
 	//--------------------------------------
 	snameV, ok := DataSname[acc.SName]
 	if !ok {
@@ -100,8 +112,15 @@ func Conv(acc Account) User {
 		Start:     uint32(acc.Premium.Start),
 		Finish:    uint32(acc.Premium.Finish),
 	}
-	AddGIndex(user)
-	AddRecIndex(user)
+	go func() {
+		AddGIndex(user)
+		convWg.Done()
+	}()
+	go func() {
+		AddRecIndex(user)
+		convWg.Done()
+	}()
+	convWg.Wait()
 	//------Имена мужские и женские--------------
 	addSexName(fnameV, acc.Sex == "m")
 	//------Общие интересы-----------

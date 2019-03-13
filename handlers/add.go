@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -24,6 +25,9 @@ var HRTime int64
 
 /*LPTime - нижняя граница премиум*/
 var LPTime int64
+
+// waitgroup для добавления
+var wgAdd = &sync.WaitGroup{}
 
 var zeroOut []byte
 
@@ -65,6 +69,7 @@ func Add(ctx *fasthttp.RequestCtx) {
 	// 	accBuff.Put(acc)
 	// }()
 	defer likeBuff.Put(likes)
+
 	acc.Likes = likes
 	err := acc.UnmarshalJSON(data)
 	//err := json.Unmarshal(data, acc)
@@ -79,17 +84,21 @@ func Add(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-
-	likes = acc.Likes
-	likes = model.NormLikes(likes)
-	acc.Likes = likes
-	sort.Slice(likes, func(i, j int) bool {
-		return likes[i].ID < likes[j].ID
-	})
-	inLikes := model.PackLSlice(likes)
-	model.SetLikes(uint32(acc.ID), inLikes)
-	model.AddWhos(uint32(acc.ID), likes)
+	wgAdd.Add(1)
+	go func() {
+		likes = acc.Likes
+		likes = model.NormLikes(likes)
+		acc.Likes = likes
+		sort.Slice(likes, func(i, j int) bool {
+			return likes[i].ID < likes[j].ID
+		})
+		inLikes := model.PackLSlice(likes)
+		model.SetLikes(uint32(acc.ID), inLikes)
+		model.AddWhos(uint32(acc.ID), likes)
+		wgAdd.Done()
+	}()
 	model.AddAcc(model.Conv(*acc))
+	wgAdd.Wait()
 	ctx.SetStatusCode(201) // все в норме
 	ctx.Write([]byte(""))
 	return

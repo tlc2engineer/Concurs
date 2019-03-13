@@ -10,6 +10,7 @@ var countryWg = &sync.WaitGroup{}
 var fnameWg = &sync.WaitGroup{}
 var snameWg = &sync.WaitGroup{}
 var codeWg = &sync.WaitGroup{}
+var domainWg = &sync.WaitGroup{}
 var interWg = &sync.WaitGroup{}
 var intMutex = &sync.Mutex{}
 
@@ -109,6 +110,7 @@ func UpdateJYear(id uint32, oldYear uint32, newYear uint32) {
 func UpdateDomainInd(id uint32, OldEmail, newEmail string) {
 	oldD := getDomain(OldEmail)
 	newD := getDomain(newEmail)
-	domIndex.Remove(uint32(oldD), id)
-	domIndex.Add(uint32(newD), id)
+	domIndex.Update(id, uint32(oldD), uint32(newD), domainWg)
+	// domIndex.Remove(uint32(oldD), id)
+	// domIndex.Add(uint32(newD), id)
 }
