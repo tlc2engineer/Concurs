@@ -30,7 +30,7 @@ import (
 3 - тест с дома полной базы
 4 - образ Docker
 */
-const mode = 1
+const mode = 2
 const opt = "options.txt"
 
 //const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/
@@ -46,6 +46,7 @@ const addrDocker = ":80"
 var phaseNum int       // номер фазы
 var lastGet time.Time  // последний Get
 var lastPost time.Time // последний Post
+
 //--------------------------------------
 func main() {
 	var base string
@@ -99,7 +100,6 @@ func main() {
 		fnames = append(fnames, f.Name)
 	}
 	num := len(fnames)
-	bdata := make([]byte, 0, 20000000)
 	//sdata := make([]byte, 0, 20000000)
 	tmp := make([]byte, 32768)
 	wg := &sync.WaitGroup{}
@@ -107,8 +107,10 @@ func main() {
 	for i := 1; i <= num; i++ {
 		//fmt.Println("Номер ", i)
 		fname := fmt.Sprintf("%saccounts_%d.json", base, i)
+		//ts := time.Now()
 		for _, f := range r.File {
 			if base+f.Name == fname {
+				bdata := model.ReadData.Get().([]byte)
 				bdata = bdata[:0]
 				rc, err := f.Open()
 				if err != nil {
@@ -138,12 +140,14 @@ func main() {
 						panic(err)
 					}
 				}
-				ndata := make([]byte, len(bdata))
-				copy(ndata, bdata)
+				// ndata := make([]byte, len(bdata))
+				// copy(ndata, bdata)
 				wg.Add(1)
-				uch <- ndata
+				uch <- bdata
 			}
+
 		}
+		//fmt.Println("read cycle", time.Since(ts))
 	}
 	r.Close()
 	close(uch)
@@ -162,6 +166,7 @@ func main() {
 		Name:    "Concurs",
 		//	Concurrency: 8,
 	}
+	runtime.GC()
 	log.Fatal(s.ListenAndServe(addr))
 }
 

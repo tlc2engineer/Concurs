@@ -6,6 +6,11 @@ import (
 	"sync"
 )
 
+var ReadData = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, 0, 20000000)
+	},
+}
 var WrMutex = new(sync.Mutex)
 var users = make([]User, 0)
 

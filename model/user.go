@@ -4,15 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"math"
-	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/buger/jsonparser"
 )
 
 /*User - структура пользователя*/
@@ -35,29 +30,21 @@ type User struct {
 	Finish    uint32
 }
 
-var convWg = &sync.WaitGroup{}
+//var convWg = &sync.WaitGroup{}
 
 /*Conv - конвертация*/
 func Conv(acc Account) User {
-	convWg.Add(5)
+
 	//-------------------------------------
 	country := DataCountry.GetOrAdd(acc.Country)
-	go func() {
-		countryMap.Add(uint32(country), uint32(acc.ID))
-		convWg.Done()
-	}()
+	countryMap.Add(uint32(country), uint32(acc.ID))
 	//--------------------------------------
 	city := DataCity.GetOrAdd(acc.City)
-	go func() {
-		cityMap.Add(uint32(city), uint32(acc.ID))
-		convWg.Done()
-	}()
+	cityMap.Add(uint32(city), uint32(acc.ID))
+
 	//---------------------------------------
 	fnameV := DataFname.GetOrAdd(acc.FName)
-	go func() {
-		fnameMap.Add(uint32(fnameV), uint32(acc.ID))
-		convWg.Done()
-	}()
+	fnameMap.Add(uint32(fnameV), uint32(acc.ID))
 	//--------------------------------------
 	snameV, ok := DataSname[acc.SName]
 	if !ok {
@@ -112,15 +99,8 @@ func Conv(acc Account) User {
 		Start:     uint32(acc.Premium.Start),
 		Finish:    uint32(acc.Premium.Finish),
 	}
-	go func() {
-		AddGIndex(user)
-		convWg.Done()
-	}()
-	go func() {
-		AddRecIndex(user)
-		convWg.Done()
-	}()
-	convWg.Wait()
+	AddGIndex(user)
+	AddRecIndex(user)
 	//------Имена мужские и женские--------------
 	addSexName(fnameV, acc.Sex == "m")
 	//------Общие интересы-----------
@@ -130,6 +110,7 @@ func Conv(acc Account) User {
 }
 
 func getDomain(email string) uint16 {
+	//fmt.Println("mail", email)
 	return DataDomain.GetOrAdd(strings.Split(email, "@")[1])
 }
 
@@ -249,45 +230,6 @@ func getRMap(m map[string]uint16, val uint16) string {
 		}
 	}
 	return ""
-}
-
-/*AddUsers - Добавление пользователей из файла*/
-func AddUsers(wg *sync.WaitGroup) chan []byte {
-	out := make(chan []byte, 0)
-	go func() {
-		for bts := range out {
-			bg := time.Now()
-			data, _, _, err := jsonparser.Get(bts, "accounts")
-			if err != nil {
-				panic(err)
-			}
-			wgl := &sync.WaitGroup{}
-			wgu := &sync.WaitGroup{}
-			likesLoader := likesLoader(wgl)
-			uloader := userLoader(wgu)
-			chb1 := parseAccountLoader(uloader)
-			_, err = jsonparser.ArrayEach(data, func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
-				id, _ := jsonparser.GetInt(value, "id")
-				ldata, _, _, err := jsonparser.Get(value, "likes")
-				likeTrans := lInsHelp{data: ldata, id: uint32(id)}
-				wgl.Add(1)
-				likesLoader <- &likeTrans
-				wgu.Add(1)
-				chb1 <- value
-			})
-			if err != nil {
-				panic(err)
-			}
-			wgu.Wait()
-			wgl.Wait()
-			fmt.Println("te", time.Since(bg))
-			close(chb1)
-			close(likesLoader)
-			wg.Done()
-			runtime.GC()
-		}
-	}()
-	return out
 }
 
 /*GetFname - имя пользователя строка*/
