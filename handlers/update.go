@@ -3,7 +3,6 @@ package handlers
 import (
 	"Concurs/model"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -282,38 +281,46 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Start = uint32(start)
 			paccount.Finish = uint32(finish)
 		case "likes":
-			wg.Add(1)
-			go func() {
-				likes := model.NormLikes(likes) // нормируем
-				sort.Slice(likes, func(i, j int) bool {
-					return likes[i].ID < likes[j].ID
-				})
-				model.SetLikes(uint32(id), model.PackLSlice(likes))
-				model.AddWhos(uint32(id), likes)
-				//Удалить старые лайки которых уже нет!
-				oldLikes := model.GetLikes(uint32(id)) // старые лайки
-				ids := make([]uint32, 0)               // список несовпадающих лайков
-				for i := 0; i < len(oldLikes)/8; i++ {
-					var idLike uint32 // старый id
-					idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
-					found := false
-					for _, like := range likes {
-						if uint32(like.ID) == idLike {
-							found = true
-							break
+			lch := model.GetLikeCh()
+			lmess := model.LikeMess{
+				ID:    uint32(id),
+				Num:   2,
+				Likes: likes,
+			}
+			lch <- &lmess
+			/*
+				wg.Add(1)
+				go func() {
+					likes := model.NormLikes(likes) // нормируем
+					sort.Slice(likes, func(i, j int) bool {
+						return likes[i].ID < likes[j].ID
+					})
+					model.SetLikes(uint32(id), model.PackLSlice(likes))
+					model.AddWhos(uint32(id), likes)
+					//Удалить старые лайки которых уже нет!
+					oldLikes := model.GetLikes(uint32(id)) // старые лайки
+					ids := make([]uint32, 0)               // список несовпадающих лайков
+					for i := 0; i < len(oldLikes)/8; i++ {
+						var idLike uint32 // старый id
+						idLike = uint32(oldLikes[0]) | uint32(oldLikes[1])<<8 | uint32(oldLikes[2])<<16
+						found := false
+						for _, like := range likes {
+							if uint32(like.ID) == idLike {
+								found = true
+								break
+							}
+						}
+						if !found {
+							ids = append(ids, idLike)
 						}
 					}
-					if !found {
-						ids = append(ids, idLike)
+					// Цикл по номерам которые уже не предпочитает
+					for _, tid := range ids {
+						data, _ := model.GetWho(tid) // кто лайкал данный id
+						model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
 					}
-				}
-				// Цикл по номерам которые уже не предпочитает
-				for _, tid := range ids {
-					data, _ := model.GetWho(tid) // кто лайкал данный id
-					model.SetWho(uint32(tid), data.RemoveId(uint32(id)))
-				}
-				wg.Done()
-			}()
+					wg.Done()
+				}()*/
 
 		}
 	}

@@ -17,10 +17,10 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 	}
 	data := ctx.PostBody()
 	likes := new(model.LikesT)
-	likesT := likesTempB.Get().([]model.LTemp)
+	likesT := model.LikesTempB.Get().([]model.LTemp)
 	likesT = likesT[:0]
 	likes.Likes = likesT
-	defer likesTempB.Put(likesT)
+	//defer model.LikesTempB.Put(likesT)
 	err := likes.UnmarshalJSON(data)
 	if err != nil {
 		ctx.SetStatusCode(400)
@@ -49,7 +49,15 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			return
 		}
 	}
-	// добавление like
+	//------------------
+	lch := model.GetLikeCh()
+	lmess := model.LikeMess{
+		Num:    1,
+		Ltemps: likesT,
+	}
+	lch <- &lmess
+	//------------------
+	/* добавление like
 	for _, like := range likesT {
 		id := like.Liker
 		id2 := like.Likee
@@ -102,7 +110,7 @@ func AddLikes(ctx *fasthttp.RequestCtx) {
 			model.AddWho(uint32(id), l)
 		}
 		model.SetLikes(uint32(id), data)
-	}
+	}*/
 
 	// окончание
 	ctx.SetStatusCode(202) // все в норме

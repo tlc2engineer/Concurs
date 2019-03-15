@@ -30,7 +30,7 @@ import (
 3 - тест с дома полной базы
 4 - образ Docker
 */
-const mode = 2
+const mode = 1
 const opt = "options.txt"
 
 //const base = "D:/install/elim/" //D:/install/elim_accounts_261218/data/data/" //"D:/install/elim_accounts_261218/data/data/" //"/home/sergey/Загрузки/data/data/"///home/sergey/Загрузки/test_accounts_220119/data/

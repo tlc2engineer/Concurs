@@ -4,7 +4,6 @@ import (
 	"Concurs/model"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -84,21 +83,30 @@ func Add(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(400)
 		return
 	}
-	wgAdd.Add(1)
-	go func() {
-		likes = acc.Likes
-		likes = model.NormLikes(likes)
-		acc.Likes = likes
-		sort.Slice(likes, func(i, j int) bool {
-			return likes[i].ID < likes[j].ID
-		})
-		inLikes := model.PackLSlice(likes)
-		model.SetLikes(uint32(acc.ID), inLikes)
-		model.AddWhos(uint32(acc.ID), likes)
-		wgAdd.Done()
-	}()
+	//------------------
+	lch := model.GetLikeCh()
+	lmess := model.LikeMess{
+		Num:   0,
+		Likes: acc.Likes,
+		ID:    uint32(acc.ID),
+	}
+	lch <- &lmess
+	//------------------
+	// wgAdd.Add(1)
+	// go func() {
+	// 	likes = acc.Likes
+	// 	likes = model.NormLikes(likes)
+	// 	acc.Likes = likes
+	// 	sort.Slice(likes, func(i, j int) bool {
+	// 		return likes[i].ID < likes[j].ID
+	// 	})
+	// 	inLikes := model.PackLSlice(likes)
+	// 	model.SetLikes(uint32(acc.ID), inLikes)
+	// 	model.AddWhos(uint32(acc.ID), likes)
+	// 	wgAdd.Done()
+	// }()
 	model.AddAcc(model.Conv(*acc))
-	wgAdd.Wait()
+	//wgAdd.Wait()
 	ctx.SetStatusCode(201) // все в норме
 	ctx.Write([]byte(""))
 	return

@@ -279,3 +279,23 @@ func (acc User) getJYear() int {
 	date := time.Unix(int64(acc.Joined), 0).In(Loc)
 	return date.Year()
 }
+
+/*Copy - копия User*/
+func Copy(user User) *User {
+	nuser := new(User)
+	nuser.ID = user.ID
+	nuser.Country = user.Country
+	nuser.City = user.City
+	nuser.FName = user.FName
+	nuser.SName = user.SName
+	nuser.Sex = user.Sex
+	nuser.Joined = user.Joined
+	nuser.Birth = user.Birth
+	nuser.Email = user.Email
+	nuser.Domain = user.Domain
+	nuser.Status = user.Status
+	nuser.Start = user.Start
+	nuser.Finish = user.Finish
+	nuser.Interests = user.Interests
+	return nuser
+}
