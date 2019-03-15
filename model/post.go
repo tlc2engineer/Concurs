@@ -1,11 +1,13 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 )
 
-var lchan chan *LikeMess
+/*LikeCh - канал для like*/
+var LikeCh = likeFactory() // chan *LikeMess
 
 /*UpdateChan - канал для обновления индексов*/
 var UpdateChan = updateUser()
@@ -25,14 +27,14 @@ var UserPool = sync.Pool{
 }
 
 /*GetLikeCh - получение канала загрузки Like*/
-func GetLikeCh() chan *LikeMess {
-	if lchan != nil {
-		return lchan
-	}
-	return likeFactory()
-}
+// func GetLikeCh() chan *LikeMess {
+// 	if lchan != nil {
+// 		return lchan
+// 	}
+// 	return likeFactory()
+// }
 func likeFactory() chan *LikeMess {
-	ch := make(chan *LikeMess, 10)
+	ch := make(chan *LikeMess, 100)
 	go func() {
 		for mess := range ch {
 			n := mess.Num
@@ -165,11 +167,15 @@ func updateUser() chan *UserMess {
 		for mess := range ch {
 			old := mess.OldUser
 			nee := mess.NewUser
-			defer UserPool.Put(nee)
+
+			//defer UserPool.Put(nee)
 			if old != nil {
+				if old.ID == 12638 {
+					fmt.Println(old)
+				}
 				RemRecIndex(*old)
 				DeleteGIndex(*old)
-				defer UserPool.Put(old)
+				//defer UserPool.Put(old)
 			}
 			AddGIndex(*nee)
 			AddRecIndex(*nee)

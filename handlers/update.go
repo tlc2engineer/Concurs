@@ -186,6 +186,11 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		ctx.SetStatusCode(400)
 		return
 	}
+	//------------------
+	//oser := model.UserPool.Get().(*model.User)
+	// oser := new(model.User)
+	// model.CopyUser(*paccount, oser)
+	//------------------------------------
 	wg.Add(2)
 	// удаление старого индекса
 	go func() {
@@ -281,7 +286,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 			paccount.Start = uint32(start)
 			paccount.Finish = uint32(finish)
 		case "likes":
-			lch := model.GetLikeCh()
+			lch := model.LikeCh
 			lmess := model.LikeMess{
 				ID:    uint32(id),
 				Num:   2,
@@ -324,6 +329,13 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 
 		}
 	}
+	// nser := new(model.User)         // model.UserPool.Get().(*model.User)
+	// model.CopyUser(*paccount, nser) // обновленный пользователь
+	// mess := model.UserMess{
+	// 	OldUser: oser,
+	// 	NewUser: nser,
+	// }
+	// model.UpdateChan <- &mess
 	wg.Wait()
 	wg.Add(2)
 	func() {
@@ -335,6 +347,7 @@ func Update(ctx *fasthttp.RequestCtx, id int) {
 		wg.Done()
 	}()
 	wg.Wait()
+
 	ctx.SetStatusCode(202) // все в норме
 	ctx.Write([]byte(""))
 	return

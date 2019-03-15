@@ -99,8 +99,16 @@ func Conv(acc Account) User {
 		Start:     uint32(acc.Premium.Start),
 		Finish:    uint32(acc.Premium.Finish),
 	}
+	// nuser := new(User) //UserPool.Get().(*User)
+	// CopyUser(user, nuser)
+	// mess := UserMess{
+	// 	OldUser: nil,
+	// 	NewUser: nuser,
+	// }
+	// UpdateChan <- &mess
 	AddGIndex(user)
 	AddRecIndex(user)
+
 	//------Имена мужские и женские--------------
 	addSexName(fnameV, acc.Sex == "m")
 	//------Общие интересы-----------
@@ -280,9 +288,8 @@ func (acc User) getJYear() int {
 	return date.Year()
 }
 
-/*Copy - копия User*/
-func Copy(user User) *User {
-	nuser := new(User)
+/*CopyUser - копия User*/
+func CopyUser(user User, nuser *User) {
 	nuser.ID = user.ID
 	nuser.Country = user.Country
 	nuser.City = user.City
@@ -296,6 +303,7 @@ func Copy(user User) *User {
 	nuser.Status = user.Status
 	nuser.Start = user.Start
 	nuser.Finish = user.Finish
-	nuser.Interests = user.Interests
-	return nuser
+	ninter := make([]uint16, len(user.Interests))
+	copy(ninter, user.Interests)
+	nuser.Interests = ninter
 }

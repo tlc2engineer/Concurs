@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -226,6 +227,8 @@ func searchInSorted(data []uint32, id uint32) int {
 	var tooLittle = false // слишком мало
 	for {
 		if (tooLittle && tooMany) || i < 0 || i > len(data)-1 {
+			fmt.Println(id)
+			fmt.Println(data)
 			panic("Error 2")
 			//return -1
 		}

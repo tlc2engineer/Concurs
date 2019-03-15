@@ -52,6 +52,15 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 			errFlag = true
 		}
 	})
+	var account model.User
+	// находим аккаунт
+	account, err := model.GetAccount(uint32(id))
+	// Если нет такого аккаунта
+	if err != nil {
+		ctx.SetStatusCode(404)
+		return
+	}
+
 	if errFlag {
 		ctx.SetStatusCode(400)
 		return
@@ -85,14 +94,6 @@ func Suggest(ctx *fasthttp.RequestCtx, id int) {
 		return
 	}
 	//---------------------------------------------
-	var account model.User
-	// находим аккаунт
-	account, err := model.GetAccount(uint32(id))
-	// Если нет такого аккаунта
-	if err != nil {
-		ctx.SetStatusCode(404)
-		return
-	}
 	filtered := ubuff.Get().([]*model.User)
 	filtered = filterSuggest(account, countryVal, cityVal, filtered)
 

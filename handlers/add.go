@@ -84,7 +84,7 @@ func Add(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	//------------------
-	lch := model.GetLikeCh()
+	lch := model.LikeCh
 	lmess := model.LikeMess{
 		Num:   0,
 		Likes: acc.Likes,
